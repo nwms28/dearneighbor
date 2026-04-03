@@ -43,7 +43,7 @@ export default function Home() {
           className="text-3xl md:text-4xl lg:text-5xl font-semibold leading-tight text-white"
           style={{ fontFamily: "var(--font-playfair)" }}
         >
-          Win the home before it&apos;s for sale.
+          Your dream home isn&apos;t for sale yet. Let&apos;s change that.
         </h1>
 
         {/* Subheading */}
