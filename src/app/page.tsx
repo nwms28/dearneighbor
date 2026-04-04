@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Playfair_Display, DM_Sans } from "next/font/google";
 
 const playfair = Playfair_Display({
@@ -15,6 +16,19 @@ const dmSans = DM_Sans({
 
 export default function Home() {
   const [email, setEmail] = useState("");
+  const router = useRouter();
+
+  function handleSubmit(e: React.SyntheticEvent) {
+    e.preventDefault();
+    if (email) {
+      fetch("/api/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      }).catch(() => {});
+    }
+    router.push("/sign-up");
+  }
 
   return (
     <div
@@ -57,7 +71,10 @@ export default function Home() {
         </p>
 
         {/* Email capture */}
-        <div className="w-full max-w-md flex flex-col sm:flex-row gap-3 mt-2">
+        <form
+          onSubmit={handleSubmit}
+          className="w-full max-w-md flex flex-col sm:flex-row gap-3 mt-2"
+        >
           <input
             type="email"
             value={email}
@@ -67,8 +84,9 @@ export default function Home() {
             style={{ fontFamily: "var(--font-dm-sans)" }}
           />
           <button
-            type="button"
-            className="px-6 py-3 rounded-lg font-semibold text-[#0f1f3d] transition hover:brightness-110 active:brightness-95 whitespace-nowrap"
+            type="submit"
+            suppressHydrationWarning
+            className="px-6 py-3 rounded-lg font-semibold text-[#0f1f3d] transition hover:brightness-110 active:brightness-95 whitespace-nowrap text-center"
             style={{
               backgroundColor: "#c9a84c",
               fontFamily: "var(--font-dm-sans)",
@@ -76,7 +94,7 @@ export default function Home() {
           >
             Get early access
           </button>
-        </div>
+        </form>
 
         {/* Privacy note */}
         <p
