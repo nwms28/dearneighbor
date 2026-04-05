@@ -1,12 +1,14 @@
-import { currentUser } from "@clerk/nextjs/server";
+"use client";
+
+import { useUser, SignOutButton } from "@clerk/nextjs";
 import { Playfair_Display, DM_Sans } from "next/font/google";
-import { UserButton } from "@clerk/nextjs";
+import Link from "next/link";
 
 const playfair = Playfair_Display({ subsets: ["latin"] });
 const dmSans = DM_Sans({ subsets: ["latin"] });
 
-export default async function DashboardPage() {
-  const user = await currentUser();
+export default function DashboardPage() {
+  const { user } = useUser();
 
   return (
     <div
@@ -24,48 +26,60 @@ export default async function DashboardPage() {
         >
           Dear · Neighbor
         </span>
-        <UserButton />
+        <SignOutButton>
+          <button
+            className="text-sm px-4 py-2 rounded-lg transition hover:brightness-110"
+            style={{ color: "#0f1f3d", backgroundColor: "#c9a84c" }}
+          >
+            Sign out
+          </button>
+        </SignOutButton>
       </header>
 
-      {/* Content */}
-      <main className="flex flex-col items-center justify-center px-6 py-24 text-center">
-        <p
-          className="text-sm font-medium tracking-widest uppercase mb-6"
-          style={{ color: "#c9a84c" }}
-        >
-          Dashboard
-        </p>
+      <main className="max-w-3xl mx-auto px-6 py-16">
+        {/* Welcome */}
         <h1
-          className="text-4xl md:text-5xl font-semibold text-white mb-4"
+          className="text-4xl md:text-5xl font-semibold text-white mb-3"
           style={{ fontFamily: playfair.style.fontFamily }}
         >
           Welcome back{user?.firstName ? `, ${user.firstName}` : ""}.
         </h1>
-        <p className="text-lg max-w-md" style={{ color: "#94a3b8" }}>
-          Your campaign dashboard is coming soon. You&apos;ll be able to target
-          neighborhoods, compose your letter, and track deliveries — all in one
-          place.
+        <p className="text-lg mb-10" style={{ color: "#94a3b8" }}>
+          Ready to reach homeowners before they list?
         </p>
 
-        {/* Placeholder card */}
-        <div
-          className="mt-12 rounded-xl p-8 w-full max-w-sm text-left"
-          style={{
-            backgroundColor: "rgba(201, 168, 76, 0.08)",
-            border: "1px solid rgba(201, 168, 76, 0.2)",
-          }}
+        {/* Start campaign CTA */}
+        <Link
+          href="/dashboard/new-campaign"
+          className="inline-block px-8 py-4 rounded-lg font-semibold text-[#0f1f3d] text-lg transition hover:brightness-110 mb-16"
+          style={{ backgroundColor: "#c9a84c" }}
         >
-          <p
-            className="text-xs font-medium tracking-widest uppercase mb-2"
+          + Start new campaign
+        </Link>
+
+        {/* Campaigns section */}
+        <section>
+          <h2
+            className="text-sm font-medium tracking-widest uppercase mb-6"
             style={{ color: "#c9a84c" }}
           >
-            Active campaigns
-          </p>
-          <p className="text-3xl font-semibold text-white">0</p>
-          <p className="text-sm mt-1" style={{ color: "#64748b" }}>
-            Start your first campaign to reach homeowners before they list.
-          </p>
-        </div>
+            Your campaigns
+          </h2>
+          <div
+            className="rounded-xl p-8 text-center"
+            style={{
+              backgroundColor: "rgba(201, 168, 76, 0.08)",
+              border: "1px solid rgba(201, 168, 76, 0.2)",
+            }}
+          >
+            <p className="text-white mb-1" style={{ fontFamily: playfair.style.fontFamily }}>
+              No campaigns yet.
+            </p>
+            <p className="text-sm" style={{ color: "#64748b" }}>
+              Start your first one above.
+            </p>
+          </div>
+        </section>
       </main>
     </div>
   );
