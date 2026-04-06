@@ -106,6 +106,11 @@ function DrawingLayer({ onShapeComplete, onClear, triggerClear }: DrawingLayerPr
 
     google.maps.event.addListener(dm, "overlaycomplete", (e: google.maps.drawing.OverlayCompleteEvent) => {
       dm.setDrawingMode(null);
+      // Only one shape allowed at a time — remove the previous one before storing the new shape
+      if (shapeRef.current) {
+        shapeRef.current.setMap(null);
+        shapeRef.current = null;
+      }
       shapeRef.current = e.overlay as google.maps.Polygon | google.maps.Rectangle;
 
       let coords: LatLng[] = [];
@@ -144,8 +149,10 @@ function DrawingLayer({ onShapeComplete, onClear, triggerClear }: DrawingLayerPr
   }, [map, drawingLib, onShapeComplete]);
 
   function clearAll() {
-    shapeRef.current?.setMap(null);
-    shapeRef.current = null;
+    if (shapeRef.current) {
+      shapeRef.current.setMap(null);
+      shapeRef.current = null;
+    }
     managerRef.current?.setDrawingMode(null);
     onClear();
   }
