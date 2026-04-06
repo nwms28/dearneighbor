@@ -32,13 +32,8 @@ export interface Parcel {
 // Land use classification
 // ---------------------------------------------------------------------------
 
-const SINGLE_FAMILY_PATTERNS = [
-  /single.?famil/i,
-  /\bsfr\b/i,
-  /\bresidential\b/i,
-  /\bhomestead\b/i,
-  /\bdwelling\b/i,
-];
+const SINGLE_FAMILY_PATTERN =
+  /single.?famil|sfr|sf.?res|one.?famil|res.?one|1.?famil|platted.?lot|homestead|\bdwelling\b/i;
 
 const MULTI_FAMILY_PATTERNS = [
   /multi.?famil/i,
@@ -65,7 +60,7 @@ const VACANT_PATTERNS = [
 ];
 
 function classifyLandUse(raw: string): LandUseCategory {
-  if (SINGLE_FAMILY_PATTERNS.some((p) => p.test(raw))) return "singleFamily";
+  if (SINGLE_FAMILY_PATTERN.test(raw)) return "singleFamily";
   if (MULTI_FAMILY_PATTERNS.some((p) => p.test(raw))) return "multiFamily";
   if (COMMERCIAL_PATTERNS.some((p) => p.test(raw))) return "commercial";
   if (VACANT_PATTERNS.some((p) => p.test(raw))) return "vacantLand";
@@ -77,6 +72,7 @@ function classifyLandUse(raw: string): LandUseCategory {
 // ---------------------------------------------------------------------------
 
 interface RegridFields {
+  mailadd?: string;
   mail_address?: string;
   address?: string;
   owner?: string;
@@ -86,8 +82,8 @@ interface RegridFields {
   state2?: string;
   mail_zip?: string;
   zip?: string;
-  land_use?: string;
   usedesc?: string;
+  land_use?: string;
   parcelnumb?: string;
 }
 
@@ -95,15 +91,30 @@ interface RegridFeature {
   id?: string | number;
   properties?: {
     fields?: RegridFields;
+    // v1 may flatten fields directly onto properties
+    mailadd?: string;
+    mail_address?: string;
+    address?: string;
+    owner?: string;
+    mail_city?: string;
+    city?: string;
+    mail_state2?: string;
+    state2?: string;
+    mail_zip?: string;
+    zip?: string;
+    usedesc?: string;
+    land_use?: string;
     parcelnumb?: string;
   };
 }
 
 interface RegridResponse {
+  // v1 returns results array
+  results?: RegridFeature[];
+  // v2-style fallbacks
   parcels?: {
     features?: RegridFeature[];
   };
-  // Some responses wrap in a data key
   data?: {
     parcels?: {
       features?: RegridFeature[];
@@ -116,17 +127,17 @@ interface RegridResponse {
 // ---------------------------------------------------------------------------
 
 function parseFeature(feature: RegridFeature): Parcel | null {
-  const fields = feature.properties?.fields;
-  if (!fields) return null;
+  // v1 may nest under properties.fields or flatten directly onto properties
+  const fields: RegridFields = feature.properties?.fields ?? feature.properties ?? {};
 
-  const address = (fields.mail_address ?? fields.address ?? "").trim();
+  const address = (fields.mailadd ?? fields.mail_address ?? fields.address ?? "").trim();
   if (!address) return null;
 
   const city = (fields.mail_city ?? fields.city ?? "").trim();
   const state = (fields.mail_state2 ?? fields.state2 ?? "").trim();
   const zip = (fields.mail_zip ?? fields.zip ?? "").trim();
   const owner = (fields.owner ?? "").trim();
-  const landUse = (fields.land_use ?? fields.usedesc ?? "").trim();
+  const landUse = (fields.usedesc ?? fields.land_use ?? "").trim();
   const parcelId = String(
     feature.properties?.parcelnumb ?? fields.parcelnumb ?? feature.id ?? ""
   );
@@ -183,6 +194,8 @@ function mockParcels(centroidLat: number, centroidLng: number, count = 14): Parc
 // ---------------------------------------------------------------------------
 
 export async function POST(request: Request) {
+  console.log("[get-addresses] VERSION 2 - handler called");
+  console.log("[get-addresses] REGRID_API_KEY set:", !!process.env.REGRID_API_KEY);
   const body = await request.json();
   const { coordinates, filters }: {
     coordinates: LatLng[];
@@ -223,41 +236,64 @@ export async function POST(request: Request) {
 
   let regridData: RegridResponse;
   try {
-    const res = await fetch("https://app.regrid.com/api/v2/parcels/polygon", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        polygon: {
+    const url = `https://app.regrid.com/api/v1/area.json`;
+    console.log("[get-addresses] calling URL:", url);
+
+    const requestBody = JSON.stringify({
+      token: apiKey,
+      geojson: {
+        type: "Feature",
+        properties: {},
+        geometry: {
           type: "Polygon",
           coordinates: [ring],
         },
-        limit: 100,
-        fields: "standard",
-      }),
+      },
+      limit: 100,
+      return_geometry: false,
+    });
+    console.log("[get-addresses] request body:", requestBody);
+
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: requestBody,
     });
 
+    console.log("[get-addresses] Regrid response status:", res.status);
+    const text = await res.text();
+    console.log("[get-addresses] Regrid response preview:", text.slice(0, 500));
+
     if (!res.ok) {
-      const text = await res.text();
-      console.error("[get-addresses] Regrid error:", res.status, text);
       return Response.json(
-        { error: `Regrid API error: ${res.status}` },
+        { error: `Regrid API error: ${res.status}`, body: text },
         { status: 502 },
       );
     }
 
-    regridData = await res.json();
+    regridData = JSON.parse(text);
   } catch (err) {
     console.error("[get-addresses] Regrid fetch failed:", err);
     return Response.json({ error: "Failed to reach Regrid API" }, { status: 502 });
   }
 
   const features =
+    regridData?.results ??
     regridData?.parcels?.features ??
     regridData?.data?.parcels?.features ??
     [];
+
+  if (features.length === 0) {
+    console.log("[get-addresses] NOTE: Free trial limited to 7 counties - if empty results, area may not be covered");
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const sampleUsedesc = (features as any[]).slice(0, 10).map((f) =>
+    f.properties?.fields?.usedesc || f.properties?.usedesc || "MISSING"
+  );
+  console.log("[get-addresses] Sample usedesc values:", sampleUsedesc);
 
   const allParcels = features
     .map(parseFeature)
