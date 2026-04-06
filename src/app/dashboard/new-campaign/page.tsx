@@ -238,6 +238,58 @@ function SidePanel({ estimatedCount, onRedraw, loading, campaignName, onCampaign
         )}
       </div>
 
+      {!loading && estimatedCount > 0 && estimatedCount < 25 && (
+        <div
+          className="rounded-lg p-4 flex flex-col gap-3"
+          style={{
+            backgroundColor: "rgba(201, 168, 76, 0.08)",
+            border: "1px solid #c9a84c",
+          }}
+        >
+          <p className="text-sm" style={{ color: "#ffffff", fontFamily: dmSans.style.fontFamily }}>
+            <span className="mr-1">💡</span>
+            Your selection has ~{estimatedCount} homes. Buyers who reach 50+ homeowners are 3x more likely to find a match.
+          </p>
+          <button
+            type="button"
+            onClick={onRedraw}
+            className="self-start text-xs font-semibold tracking-wider uppercase hover:brightness-125"
+            style={{ color: "#c9a84c", fontFamily: dmSans.style.fontFamily }}
+          >
+            Expand my selection →
+          </button>
+        </div>
+      )}
+
+      {!loading && estimatedCount >= 25 && estimatedCount < 50 && (
+        <div
+          className="rounded-lg p-4"
+          style={{
+            backgroundColor: "rgba(201, 168, 76, 0.06)",
+            border: "1px solid rgba(201, 168, 76, 0.25)",
+          }}
+        >
+          <p className="text-sm" style={{ color: "#ffffff", fontFamily: dmSans.style.fontFamily }}>
+            Good start! Drawing a slightly larger area could improve your chances.
+          </p>
+        </div>
+      )}
+
+      {!loading && estimatedCount >= 50 && (
+        <div
+          className="rounded-lg p-4"
+          style={{
+            backgroundColor: "rgba(74, 222, 128, 0.08)",
+            border: "1px solid rgba(74, 222, 128, 0.35)",
+          }}
+        >
+          <p className="text-sm" style={{ color: "#ffffff", fontFamily: dmSans.style.fontFamily }}>
+            <span className="mr-1" style={{ color: "#4ade80" }}>✓</span>
+            Great selection — you&apos;re reaching enough homeowners to make an impact.
+          </p>
+        </div>
+      )}
+
       <Link
         href="/dashboard/new-campaign/letter"
         className="w-full px-5 py-3 rounded-lg font-semibold text-[#0f1f3d] text-center transition hover:brightness-110"
