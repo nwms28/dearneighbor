@@ -38,19 +38,72 @@ interface ReturnAddress {
   zip: string;
 }
 
-// Parse "123 Main St, Ann Arbor, MI 48103" → {street, city, state, zip}
-function parseAddress(full: string): ParsedAddress | null {
-  if (!full) return null;
-  const parts = full.split(",").map((p) => p.trim()).filter(Boolean);
-  // Last segment should be "ST 12345" (optionally "ST 12345-6789")
-  const last = parts[parts.length - 1] ?? "";
-  const m = last.match(/^([A-Za-z]{2})\s+(\d{5})(?:-\d{4})?$/);
-  if (!m || parts.length < 3) return null;
-  const state = m[1].toUpperCase();
-  const zip = m[2];
-  const city = parts[parts.length - 2];
-  const street = parts.slice(0, parts.length - 2).join(", ");
-  if (!street || !city) return null;
+// Parses both:
+//   "6017 INDIANOLA AVE, INDIANAPOLIS IN, 46220-2013"
+//   "6706 lakeway st, Ypsilanti MI 48197"
+function parseAddress(fullAddress: string): ParsedAddress | null {
+  const parts = fullAddress.split(",").map((p) => p.trim());
+  if (parts.length < 2) return null;
+
+  const street = parts[0];
+  let city = "";
+  let state = "";
+  let zip = "";
+
+  if (parts.length === 2) {
+    // "Street, City ST ZIP"
+    const match = parts[1].match(/^(.*?)\s+([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/);
+    if (!match) return null;
+    city = match[1];
+    state = match[2];
+    zip = match[3].split("-")[0];
+  } else if (parts.length === 3) {
+    // Could be "Street, City ST, ZIP" or "Street, City, ST ZIP"
+    const lastPart = parts[2];
+    const middlePart = parts[1];
+
+    // Case 1: "INDIANAPOLIS IN, 46220-2013" — state at end of middle, zip in last
+    const midStateMatch = middlePart.match(/^(.*?)\s+([A-Z]{2})$/);
+    const lastZipMatch = lastPart.match(/^(\d{5}(?:-\d{4})?)$/);
+    if (midStateMatch && lastZipMatch) {
+      city = midStateMatch[1];
+      state = midStateMatch[2];
+      zip = lastZipMatch[1].split("-")[0];
+    } else {
+      // Case 2: "City, ST ZIP" — state+zip together in last part
+      const lastMatch = lastPart.match(/^([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/);
+      if (lastMatch) {
+        city = middlePart;
+        state = lastMatch[1];
+        zip = lastMatch[2].split("-")[0];
+      } else {
+        // Case 3: city state zip all in last part
+        const fullMatch = lastPart.match(/^(.*?)\s+([A-Z]{2})\s+(\d{5}(?:-\d{4})?)$/);
+        if (fullMatch) {
+          city = middlePart;
+          state = fullMatch[2];
+          zip = fullMatch[3].split("-")[0];
+        } else {
+          return null;
+        }
+      }
+    }
+  } else {
+    // 4+ parts — take last two as state/zip candidates
+    const lastPart = parts[parts.length - 1];
+    const middlePart = parts[parts.length - 2];
+    const midStateMatch = middlePart.match(/^(.*?)\s+([A-Z]{2})$/);
+    const lastZipMatch = lastPart.match(/^(\d{5}(?:-\d{4})?)$/);
+    if (midStateMatch && lastZipMatch) {
+      city = midStateMatch[1] || parts[parts.length - 3];
+      state = midStateMatch[2];
+      zip = lastZipMatch[1].split("-")[0];
+    } else {
+      return null;
+    }
+  }
+
+  if (!state || !zip) return null;
   return { street, city, state, zip };
 }
 
@@ -225,6 +278,7 @@ export async function POST(request: Request) {
     for (const fullAddress of addresses) {
       try {
         const parsed = parseAddress(fullAddress);
+        console.log("[send-letters] parsed address:", parsed);
         if (!parsed) {
           console.error("[send-letters] could not parse address:", fullAddress);
           failed++;
