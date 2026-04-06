@@ -47,11 +47,53 @@ interface CampaignStats {
   interested: number;
 }
 
+type LeadFilter = "all" | "scanned" | "interested";
+
+interface Lead {
+  id: string;
+  address: string;
+  homeowner_name: string | null;
+  homeowner_email: string | null;
+  homeowner_phone: string | null;
+  timeline: string | null;
+  status: string | null;
+}
+
+const TIMELINE_LABEL: Record<string, string> = {
+  ready: "Ready soon",
+  "few-months": "In a few months",
+  exploring: "Just exploring",
+};
+
 export default function DashboardPage() {
   const { user } = useUser();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [stats, setStats] = useState<Record<string, CampaignStats>>({});
   const [loading, setLoading] = useState(true);
+
+  // Currently expanded panel: { campaignId, filter } — null when nothing expanded
+  const [expanded, setExpanded] = useState<{ campaignId: string; filter: LeadFilter } | null>(null);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [leadsLoading, setLeadsLoading] = useState(false);
+
+  function handleStatClick(campaignId: string, filter: LeadFilter) {
+    // Same stat clicked again → collapse
+    if (expanded && expanded.campaignId === campaignId && expanded.filter === filter) {
+      setExpanded(null);
+      setLeads([]);
+      return;
+    }
+    setExpanded({ campaignId, filter });
+    setLeadsLoading(true);
+    fetch(`/api/campaigns/leads?campaignId=${campaignId}&status=${filter}`)
+      .then((r) => r.json())
+      .then((data) => setLeads(data.leads ?? []))
+      .catch((err) => {
+        console.error("[dashboard] leads fetch failed:", err);
+        setLeads([]);
+      })
+      .finally(() => setLeadsLoading(false));
+  }
 
   useEffect(() => {
     if (!user) return;
@@ -183,24 +225,82 @@ export default function DashboardPage() {
                     </p>
                   </div>
 
-                  {/* Stats row */}
+                  {/* Stats row — clickable */}
                   <div
-                    className="flex flex-wrap gap-x-5 gap-y-2 mt-4 pt-3 border-t"
+                    className="flex flex-wrap gap-2 mt-4 pt-3 border-t"
                     style={{ borderColor: "rgba(201, 168, 76, 0.15)" }}
                   >
-                    <span className="text-sm text-white">
-                      📬 <span className="font-semibold">{stats[c.id]?.mailed ?? "—"}</span>{" "}
-                      <span style={{ color: "#64748b" }}>mailed</span>
-                    </span>
-                    <span className="text-sm text-white">
-                      👁 <span className="font-semibold">{stats[c.id]?.scanned ?? "—"}</span>{" "}
-                      <span style={{ color: "#64748b" }}>scanned</span>
-                    </span>
-                    <span className="text-sm text-white">
-                      ✋ <span className="font-semibold">{stats[c.id]?.interested ?? "—"}</span>{" "}
-                      <span style={{ color: "#64748b" }}>interested</span>
-                    </span>
+                    {([
+                      { filter: "all" as const, icon: "📬", label: "mailed", value: stats[c.id]?.mailed },
+                      { filter: "scanned" as const, icon: "👁", label: "scanned", value: stats[c.id]?.scanned },
+                      { filter: "interested" as const, icon: "✋", label: "interested", value: stats[c.id]?.interested },
+                    ]).map(({ filter, icon, label, value }) => {
+                      const isActive = expanded?.campaignId === c.id && expanded.filter === filter;
+                      return (
+                        <button
+                          key={filter}
+                          onClick={() => handleStatClick(c.id, filter)}
+                          className="text-sm px-3 py-1.5 rounded-lg transition hover:brightness-125"
+                          style={{
+                            backgroundColor: isActive ? "rgba(201, 168, 76, 0.18)" : "rgba(255,255,255,0.03)",
+                            border: isActive ? "1px solid #c9a84c" : "1px solid rgba(255,255,255,0.08)",
+                            color: isActive ? "#c9a84c" : "#ffffff",
+                          }}
+                        >
+                          {icon} <span className="font-semibold">{value ?? "—"}</span>{" "}
+                          <span style={{ color: isActive ? "#c9a84c" : "#64748b" }}>{label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
+
+                  {/* Expandable leads panel */}
+                  {expanded?.campaignId === c.id && (
+                    <div
+                      className="mt-4 pt-4 border-t"
+                      style={{ borderColor: "rgba(201, 168, 76, 0.15)" }}
+                    >
+                      {leadsLoading ? (
+                        <p className="text-sm" style={{ color: "#64748b" }}>Loading leads…</p>
+                      ) : leads.length === 0 ? (
+                        <p className="text-sm" style={{ color: "#64748b" }}>
+                          No {expanded.filter === "all" ? "" : expanded.filter} leads yet.
+                        </p>
+                      ) : (
+                        <div className="flex flex-col gap-2">
+                          {leads.map((l) => (
+                            <div
+                              key={l.id}
+                              className="rounded-lg p-3 flex flex-col gap-1"
+                              style={{
+                                backgroundColor: "rgba(15, 31, 61, 0.6)",
+                                border: "1px solid rgba(201, 168, 76, 0.1)",
+                              }}
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <span className="text-sm text-white font-medium">{l.address}</span>
+                                <StatusBadge status={l.status} />
+                              </div>
+                              {(l.homeowner_name || l.homeowner_email || l.timeline) && (
+                                <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs" style={{ color: "#94a3b8" }}>
+                                  {l.homeowner_name && <span>{l.homeowner_name}</span>}
+                                  {l.homeowner_email && (
+                                    <a href={`mailto:${l.homeowner_email}`} style={{ color: "#c9a84c" }}>
+                                      {l.homeowner_email}
+                                    </a>
+                                  )}
+                                  {l.homeowner_phone && <span>{l.homeowner_phone}</span>}
+                                  {l.timeline && (
+                                    <span>{TIMELINE_LABEL[l.timeline] ?? l.timeline}</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
