@@ -2,6 +2,7 @@
 // Optional: ADMIN_NOTIFICATION_EMAIL — internal address to notify on each signup.
 
 import { Resend } from "resend";
+import { createClient } from "@supabase/supabase-js";
 
 export async function POST(request: Request) {
   const { email } = await request.json();
@@ -74,6 +75,24 @@ export async function POST(request: Request) {
         html: adminHtml,
       })
       .catch((err) => console.error("[subscribe] admin notify failed:", err));
+  }
+
+  // Save to Supabase waitlist table — silently ignore duplicates
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (supabaseUrl && supabaseKey) {
+    try {
+      const db = createClient(supabaseUrl, supabaseKey);
+      const { error: insertErr } = await db.from("waitlist").insert({ email });
+      if (insertErr && insertErr.code !== "23505") {
+        // 23505 = unique_violation — duplicate emails are fine
+        console.error("[subscribe] waitlist insert failed:", insertErr.message);
+      }
+    } catch (err) {
+      console.error("[subscribe] waitlist insert threw:", err);
+    }
+  } else {
+    console.warn("[subscribe] Supabase env vars missing — skipping waitlist insert");
   }
 
   console.log("[subscribe] sent welcome to", email);
