@@ -244,9 +244,8 @@ export default function Home() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
             {/* Traditional */}
             <div
-              className="rounded-xl p-7"
+              className="rounded-xl p-7 bg-[#1a2f52]"
               style={{
-                backgroundColor: "rgba(255,255,255,0.03)",
                 border: "1px solid rgba(255,255,255,0.1)",
               }}
             >
@@ -414,7 +413,7 @@ export default function Home() {
             </button>
           </form>
           <p className="text-sm" style={{ color: "#64748b" }}>
-            No spam. Just a note when the doors open.
+            Sign up and start reaching homeowners today.
           </p>
         </div>
       </section>
