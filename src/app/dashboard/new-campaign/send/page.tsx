@@ -24,6 +24,7 @@ function SendPageContent() {
     address_count?: number;
     delivery_method?: string;
   } | null>(null);
+  const [downloadState, setDownloadState] = useState<"idle" | "loading" | "done" | "error">("idle");
 
   // Keep a ref that always reflects the latest store values.
   // We read from this ref (not the reactive store) inside the save effect so the
@@ -140,6 +141,32 @@ function SendPageContent() {
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  async function handleDownload() {
+    if (!campaign?.id) return;
+    setDownloadState("loading");
+    try {
+      const res = await fetch("/api/generate-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ campaignId: campaign.id }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "dear-neighbor-letters.zip";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setDownloadState("done");
+    } catch (err) {
+      console.error("[send] download failed:", err);
+      setDownloadState("error");
+    }
+  }
 
   const neighborhoodName = campaign?.neighborhood_name ?? store.neighborhoodName ?? "—";
   const addressCount = campaign?.address_count ?? store.confirmedAddresses.length ?? store.addresses.length ?? 0;
@@ -294,6 +321,30 @@ function SendPageContent() {
                 </div>
               ))}
             </div>
+
+            {/* Download button (download delivery only) */}
+            {deliveryMethod === "download" && (
+              <div className="w-full max-w-sm mb-4 flex flex-col items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleDownload}
+                  disabled={downloadState === "loading"}
+                  className="w-full py-4 rounded-lg font-semibold text-[#0f1f3d] text-center transition hover:brightness-110 disabled:opacity-60 text-lg"
+                  style={{ backgroundColor: "#c9a84c" }}
+                >
+                  {downloadState === "loading"
+                    ? "Generating your PDFs…"
+                    : downloadState === "done"
+                    ? "Download again"
+                    : "Download your letters"}
+                </button>
+                {downloadState === "error" && (
+                  <p className="text-sm" style={{ color: "#f87171" }}>
+                    Something went wrong generating your PDFs. Please try again.
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* CTAs */}
             <div className="flex flex-col items-center gap-4 w-full max-w-sm">

@@ -90,6 +90,34 @@ export default function CampaignDetailPage({
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState("");
 
+  const [downloadState, setDownloadState] = useState<"idle" | "loading" | "done" | "error">("idle");
+
+  async function handleDownload() {
+    if (!campaign) return;
+    setDownloadState("loading");
+    try {
+      const res = await fetch("/api/generate-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ campaignId: campaign.id }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "dear-neighbor-letters.zip";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setDownloadState("done");
+    } catch (err) {
+      console.error("[campaign-detail] download failed:", err);
+      setDownloadState("error");
+    }
+  }
+
   useEffect(() => {
     fetch(`/api/campaigns/${id}`)
       .then(async (res) => {
@@ -215,6 +243,30 @@ export default function CampaignDetailPage({
                 </>
               )}
             </div>
+
+            {/* Download button (download delivery only) */}
+            {campaign.delivery_method === "download" && (
+              <div className="mb-6 flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={handleDownload}
+                  disabled={downloadState === "loading"}
+                  className="self-start px-5 py-2.5 rounded-lg font-semibold text-[#0f1f3d] transition hover:brightness-110 disabled:opacity-60"
+                  style={{ backgroundColor: "#c9a84c" }}
+                >
+                  {downloadState === "loading"
+                    ? "Generating your PDFs…"
+                    : downloadState === "done"
+                    ? "Download again"
+                    : "Download PDFs"}
+                </button>
+                {downloadState === "error" && (
+                  <p className="text-sm" style={{ color: "#f87171" }}>
+                    Something went wrong generating your PDFs. Please try again.
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Meta */}
             <div className="flex flex-wrap gap-x-6 gap-y-1 mb-10 text-sm">
