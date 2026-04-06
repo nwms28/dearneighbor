@@ -121,8 +121,55 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message, code: error.code, details: error.details }, { status: 500 });
     }
 
-    console.log("[campaigns/save] saved campaign id:", data?.id);
-    return NextResponse.json({ campaign: data });
+    const campaignId = data?.id;
+    console.log("[campaigns/save] saved campaign id:", campaignId);
+
+    // Generate QR codes for each confirmed address
+    const addressList: string[] = confirmedAddresses ?? addresses ?? [];
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    let qrCodes: { address: string; token: string; qrCode: string; landingUrl: string }[] = [];
+
+    if (addressList.length > 0) {
+      const qrResults = await Promise.allSettled(
+        addressList.map((address: string) =>
+          fetch(`${baseUrl}/api/generate-qr`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ campaignId, address }),
+          }).then((r) => r.json())
+        )
+      );
+
+      for (let i = 0; i < qrResults.length; i++) {
+        const result = qrResults[i];
+        if (result.status === "fulfilled" && result.value.token) {
+          qrCodes.push({
+            address: addressList[i],
+            token: result.value.token,
+            qrCode: result.value.qrCode,
+            landingUrl: result.value.landingUrl,
+          });
+        } else {
+          const reason = result.status === "rejected" ? result.reason : result.value?.error;
+          console.error(`[campaigns/save] QR generation failed for "${addressList[i]}":`, reason);
+        }
+      }
+
+      console.log(`[campaigns/save] generated ${qrCodes.length}/${addressList.length} QR codes`);
+
+      if (qrCodes.length > 0) {
+        const { error: qrUpdateError } = await db
+          .from("campaigns")
+          .update({ qr_codes: qrCodes })
+          .eq("id", campaignId);
+
+        if (qrUpdateError) {
+          console.error("[campaigns/save] failed to store QR codes:", qrUpdateError.message);
+        }
+      }
+    }
+
+    return NextResponse.json({ campaign: { ...data, qr_codes: qrCodes } });
   } catch (err) {
     console.error("[campaigns/save] unhandled error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
