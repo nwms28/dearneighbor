@@ -79,14 +79,31 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    console.log("[generate-pdf] campaign:", {
+      hasReturnAddress: !!campaign.return_address,
+      returnAddress: campaign.return_address,
+      addressCount: campaign.addresses?.length,
+      hasLetter: !!campaign.letter,
+      hasQrCodes: campaign.qr_codes?.length,
+    });
+
     const addresses: string[] = campaign.addresses ?? [];
     const letterText: string = campaign.letter ?? "";
     const qrCodes: QrCodeRecord[] = campaign.qr_codes ?? [];
-    const returnAddress: ReturnAddress | null = campaign.return_address ?? null;
     const buyerName: string = campaign.buyer_name ?? "your neighbor";
 
-    if (!returnAddress) {
-      return NextResponse.json({ error: "Campaign is missing a return address" }, { status: 400 });
+    // Fall back to a placeholder if return_address is missing so the PDF still generates
+    let returnAddress: ReturnAddress;
+    if (campaign.return_address && campaign.return_address.street) {
+      returnAddress = campaign.return_address;
+    } else {
+      console.warn("[generate-pdf] return_address missing — using placeholder");
+      returnAddress = {
+        street: "Return address on file",
+        city: "—",
+        state: "—",
+        zip: "—",
+      };
     }
     if (addresses.length === 0) {
       return NextResponse.json({ error: "Campaign has no addresses" }, { status: 400 });

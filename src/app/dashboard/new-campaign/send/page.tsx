@@ -17,6 +17,8 @@ function SendPageContent() {
   const { user } = useUser();
   const store = useCampaignStore();
   const hasSaved = useRef(false);
+  const mountedAt = useRef(Date.now());
+  const [waitTick, setWaitTick] = useState(0);
   const [saveState, setSaveState] = useState<SaveState>("saving");
   const [campaign, setCampaign] = useState<{
     id?: string;
@@ -51,7 +53,12 @@ function SendPageContent() {
 
   useEffect(() => {
     console.log("[send] store snapshot on mount:", storeSnapshot.current);
-  }, []);
+    console.log("[send] delivery method from store:", store.deliveryMethod);
+  }, [store.deliveryMethod]);
+
+  // True once the store has anything that looks like a real campaign in it.
+  const storeHydrated =
+    store.confirmedAddresses.length > 0 || store.generatedLetter.length > 0;
 
   useEffect(() => {
     // Wait until Clerk has loaded the user before firing
@@ -66,7 +73,46 @@ function SendPageContent() {
       return;
     }
 
-    const snap = storeSnapshot.current;
+    // If the reactive store hasn't hydrated from localStorage yet, hold off.
+    // After 2s of waiting we read campaign_draft directly as a fallback.
+    let snap = storeSnapshot.current;
+    const snapEmpty =
+      !snap.confirmedAddresses?.length && !snap.generatedLetter?.length;
+
+    if (snapEmpty && !storeHydrated) {
+      const elapsed = Date.now() - mountedAt.current;
+      if (elapsed < 2000) {
+        // Try again shortly — the store hydration effect should fire any moment.
+        const t = setTimeout(() => setWaitTick((n) => n + 1), 150);
+        return () => clearTimeout(t);
+      }
+      // Fallback: parse localStorage directly.
+      console.warn("[send] store still empty after 2s — falling back to localStorage");
+      try {
+        const raw = typeof window !== "undefined" ? localStorage.getItem("campaign_draft") : null;
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          snap = {
+            neighborhoodName: parsed.neighborhoodName ?? "",
+            campaignName: parsed.campaignName ?? "",
+            addresses: parsed.addresses ?? [],
+            confirmedAddresses: parsed.confirmedAddresses ?? [],
+            generatedLetter: parsed.generatedLetter ?? "",
+            deliveryMethod: parsed.deliveryMethod ?? "mail",
+            returnAddress: parsed.returnAddress ?? null,
+          };
+          storeSnapshot.current = snap;
+          console.log("[send] recovered snapshot from localStorage:", {
+            confirmedAddressesCount: snap.confirmedAddresses?.length,
+            generatedLetterLength: snap.generatedLetter?.length,
+            deliveryMethod: snap.deliveryMethod,
+          });
+        }
+      } catch (err) {
+        console.error("[send] localStorage fallback failed:", err);
+      }
+    }
+
     const payload = {
       sessionId,
       userId: user.id,
@@ -140,7 +186,7 @@ function SendPageContent() {
         setSaveState("error");
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user, storeHydrated, waitTick]);
 
   async function handleDownload() {
     if (!campaign?.id) return;

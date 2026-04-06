@@ -141,6 +141,7 @@ export async function POST(request: Request) {
       buyer_city: buyerCity,
       return_address: returnAddress ?? null,
     };
+    console.log("[campaigns/save] return_address present:", !!returnAddress, "value:", returnAddress);
     console.log("[campaigns/save] inserting row:", JSON.stringify({ ...insertRow, letter: insertRow.letter?.slice(0, 40) }));
 
     const { data, error } = await db
