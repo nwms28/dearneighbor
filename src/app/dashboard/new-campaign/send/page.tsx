@@ -10,7 +10,7 @@ import { useCampaignStore } from "@/hooks/useCampaignStore";
 const playfair = Playfair_Display({ subsets: ["latin"] });
 const dmSans = DM_Sans({ subsets: ["latin"] });
 
-type SaveState = "saving" | "done" | "error";
+type SaveState = "saving" | "mailing" | "mailed" | "done" | "error";
 
 function SendPageContent() {
   const searchParams = useSearchParams();
@@ -19,6 +19,7 @@ function SendPageContent() {
   const hasSaved = useRef(false);
   const [saveState, setSaveState] = useState<SaveState>("saving");
   const [campaign, setCampaign] = useState<{
+    id?: string;
     neighborhood_name?: string;
     address_count?: number;
     delivery_method?: string;
@@ -98,10 +99,35 @@ function SendPageContent() {
         }
         return res.json();
       })
-      .then((data) => {
+      .then(async (data) => {
         if (data.error) throw new Error(data.error);
         setCampaign(data.campaign);
-        setSaveState("done");
+
+        // For mailed campaigns, hand the campaign off to Lob.
+        // Download campaigns skip this step entirely.
+        if (data.campaign?.delivery_method === "mail" && data.campaign?.id) {
+          setSaveState("mailing");
+          try {
+            const mailRes = await fetch("/api/send-letters", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ campaignId: data.campaign.id }),
+            });
+            const mailData = await mailRes.json();
+            if (!mailRes.ok || mailData.error) {
+              throw new Error(mailData.error ?? `HTTP ${mailRes.status}`);
+            }
+            console.log("[send] letters dispatched:", mailData);
+            setSaveState("mailed");
+          } catch (mailErr) {
+            console.error("[send] /api/send-letters failed:", mailErr);
+            // Don't fail the whole flow — campaign is saved, just flag the issue.
+            setSaveState("done");
+          }
+        } else {
+          setSaveState("done");
+        }
+
         store.clearCampaign();
       })
       .catch((err) => {
@@ -145,6 +171,12 @@ function SendPageContent() {
           </p>
         )}
 
+        {saveState === "mailing" && (
+          <p className="text-lg" style={{ color: "#94a3b8" }}>
+            Sending your letters to the printer…
+          </p>
+        )}
+
         {saveState === "error" && (
           <div className="flex flex-col items-center gap-4">
             <p className="text-lg" style={{ color: "#f87171" }}>
@@ -160,7 +192,7 @@ function SendPageContent() {
           </div>
         )}
 
-        {saveState === "done" && (
+        {(saveState === "done" || saveState === "mailed") && (
           <>
             {/* Checkmark */}
             <div
@@ -183,7 +215,9 @@ function SendPageContent() {
               className="text-4xl md:text-5xl font-semibold text-white mb-4"
               style={{ fontFamily: playfair.style.fontFamily }}
             >
-              Your campaign is live!
+              {saveState === "mailed"
+                ? "Your letters are on their way! 📬"
+                : "Your campaign is live!"}
             </h1>
             <p className="text-lg max-w-md mb-12" style={{ color: "#94a3b8" }}>
               {deliveryMethod === "mail"

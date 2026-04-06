@@ -73,6 +73,7 @@ export default function LetterPage() {
   const [form, setForm] = useState<FormFields>(EMPTY_FORM);
   const [returnAddr, setReturnAddr] = useState<ReturnAddressFields>(EMPTY_RETURN);
   const [saveAddrForFuture, setSaveAddrForFuture] = useState(true);
+  const [addrCollapsed, setAddrCollapsed] = useState(false);
   const [letter, setLetter] = useState("");
   const [editableLetter, setEditableLetter] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
@@ -85,13 +86,24 @@ export default function LetterPage() {
       .then((data) => {
         const ra = data?.returnAddress;
         if (ra && ra.street) {
-          setReturnAddr({
+          const prefilled = {
             street: ra.street ?? "",
             unit: ra.unit ?? "",
             city: ra.city ?? "",
             state: ra.state ?? "",
             zip: ra.zip ?? "",
+          };
+          setReturnAddr(prefilled);
+          // Push to store immediately so a returning user can submit without
+          // re-touching the form
+          store.setReturnAddress({
+            street: prefilled.street,
+            unit: prefilled.unit || undefined,
+            city: prefilled.city,
+            state: prefilled.state,
+            zip: prefilled.zip,
           });
+          setAddrCollapsed(true);
         }
       })
       .catch(() => {});
@@ -195,17 +207,42 @@ export default function LetterPage() {
                 border: "2px solid #c9a84c",
               }}
             >
-              <div className="flex flex-col gap-1">
-                <h3
-                  className="text-base font-semibold text-white"
-                  style={{ fontFamily: playfair.style.fontFamily }}
-                >
-                  Your return address
-                </h3>
-                <p className="text-xs" style={{ color: "#94a3b8" }}>
-                  This appears on every envelope and is how homeowners write back to you.
-                </p>
-              </div>
+              {addrCollapsed ? (
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-base flex-shrink-0">📍</span>
+                    <span
+                      className="text-sm text-white truncate"
+                      style={{ fontFamily: dmSans.style.fontFamily }}
+                      title={`${returnAddr.street}${returnAddr.unit ? ", " + returnAddr.unit : ""}, ${returnAddr.city} ${returnAddr.state} ${returnAddr.zip}`}
+                    >
+                      {returnAddr.street}
+                      {returnAddr.unit ? `, ${returnAddr.unit}` : ""}
+                      {`, ${returnAddr.city} ${returnAddr.state} ${returnAddr.zip}`}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setAddrCollapsed(false)}
+                    className="text-xs font-semibold uppercase tracking-widest flex-shrink-0 hover:brightness-110"
+                    style={{ color: "#c9a84c", fontFamily: dmSans.style.fontFamily }}
+                  >
+                    Change
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="flex flex-col gap-1">
+                    <h3
+                      className="text-base font-semibold text-white"
+                      style={{ fontFamily: playfair.style.fontFamily }}
+                    >
+                      Your return address
+                    </h3>
+                    <p className="text-xs" style={{ color: "#94a3b8" }}>
+                      This appears on every envelope and is how homeowners write back to you.
+                    </p>
+                  </div>
 
               <Field label="Street address">
                 <input
@@ -283,6 +320,8 @@ export default function LetterPage() {
                 />
                 Save this address for future campaigns
               </label>
+                </>
+              )}
             </div>
 
             <h2
