@@ -24,6 +24,36 @@ import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 
+// Extract buyer name from a letter's signature.
+// Walks lines from the end, finds a closing word, then takes the next line as the name.
+function extractBuyerName(letter: string | undefined): string | null {
+  if (!letter) return null;
+  const lines = letter
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+  const closings = /^(with\b|sincerely|regards|warmly|best|thanks|cheers|yours)/i;
+  const nameRe = /^[A-Z][a-zA-Z'\-.]+(?:\s+[A-Z][a-zA-Z'\-.]+)*$/;
+  for (let i = lines.length - 1; i >= 0; i--) {
+    if (closings.test(lines[i])) {
+      const candidate = lines[i + 1];
+      if (candidate && nameRe.test(candidate)) return candidate.replace(/[,.]$/, "");
+    }
+  }
+  const lastLine = lines[lines.length - 1];
+  if (lastLine && nameRe.test(lastLine)) return lastLine.replace(/[,.]$/, "");
+  return null;
+}
+
+// Extract a city from a neighborhood name like "Burns Park, Ann Arbor MI"
+function extractCity(neighborhoodName: string | undefined): string | null {
+  if (!neighborhoodName) return null;
+  // Try "Hood, City ST" → "City"
+  const match = neighborhoodName.match(/,\s*([^,]+?)(?:\s+[A-Z]{2})?\s*$/);
+  if (match) return match[1].trim();
+  return neighborhoodName.trim();
+}
+
 export async function POST(request: Request) {
   console.log("[campaigns/save] handler hit");
 
@@ -94,6 +124,9 @@ export async function POST(request: Request) {
 
     // Save to Supabase using service_role client (bypasses RLS for server-side writes)
     const db = createClient(supabaseUrl, supabaseKey);
+    const buyerName = extractBuyerName(generatedLetter);
+    const buyerCity = extractCity(neighborhoodName);
+
     const insertRow = {
       user_id: userId,
       neighborhood_name: neighborhoodName,
@@ -103,6 +136,8 @@ export async function POST(request: Request) {
       delivery_method: deliveryMethod,
       stripe_session_id: sessionId,
       status: "active",
+      buyer_name: buyerName,
+      buyer_city: buyerCity,
     };
     console.log("[campaigns/save] inserting row:", JSON.stringify({ ...insertRow, letter: insertRow.letter?.slice(0, 40) }));
 
