@@ -28,6 +28,11 @@ function AddressesPageContent() {
   const [hydrated, setHydrated] = useState(false);
   const [delivery, setDelivery] = useState<DeliveryMethod>("mail");
   const [manualAddresses, setManualAddresses] = useState<string[]>([]);
+  // Local working copy of geocoded addresses (deduped, mutable for zip fixes)
+  const [storeAddresses, setStoreAddresses] = useState<string[]>([]);
+  const [continueError, setContinueError] = useState("");
+  // In-progress zip entries keyed by the current address string. Committed on blur/Enter.
+  const [pendingZips, setPendingZips] = useState<Record<string, string>>({});
 
   // Manual entry form state
   const [formOpen, setFormOpen] = useState(false);
@@ -35,20 +40,61 @@ function AddressesPageContent() {
   const [manualError, setManualError] = useState("");
   const newAddressRef = useRef<HTMLLabelElement | null>(null);
 
-  // Hydrate selection from store addresses once loaded
+  // Hydrate selection from store addresses once loaded — dedupe by full string
   useEffect(() => {
     if (store.addresses.length > 0 && !hydrated) {
-      setSelected(new Set(store.addresses));
+      const seen = new Set<string>();
+      const deduped: string[] = [];
+      for (const addr of store.addresses) {
+        const key = addr.trim();
+        if (!seen.has(key)) {
+          seen.add(key);
+          deduped.push(addr);
+        }
+      }
+      setStoreAddresses(deduped);
+      setSelected(new Set(deduped));
       setHydrated(true);
     }
   }, [store.addresses, hydrated]);
+
+  // True when an address has no 5-digit zip at the end (e.g. ends with "ST" or "ST,")
+  function isMissingZip(address: string): boolean {
+    return !/\d{5}(?:-\d{4})?\s*$/.test(address.trim());
+  }
+
+  function updateAddress(oldAddress: string, newAddress: string) {
+    if (oldAddress === newAddress) return;
+    setStoreAddresses((prev) => prev.map((a) => (a === oldAddress ? newAddress : a)));
+    setManualAddresses((prev) => prev.map((a) => (a === oldAddress ? newAddress : a)));
+    setSelected((prev) => {
+      if (!prev.has(oldAddress)) return prev;
+      const next = new Set(prev);
+      next.delete(oldAddress);
+      next.add(newAddress);
+      return next;
+    });
+  }
+
+  function commitZip(address: string) {
+    const zip = (pendingZips[address] ?? "").replace(/\D/g, "").slice(0, 5);
+    if (zip.length !== 5) return;
+    const base = address.replace(/[,\s]+$/, "");
+    const next = `${base} ${zip}`;
+    updateAddress(address, next);
+    setPendingZips((prev) => {
+      const copy = { ...prev };
+      delete copy[address];
+      return copy;
+    });
+  }
 
   // Hydrate delivery from store
   useEffect(() => {
     if (store.deliveryMethod) setDelivery(store.deliveryMethod);
   }, [store.deliveryMethod]);
 
-  const allAddresses = [...store.addresses, ...manualAddresses];
+  const allAddresses = [...storeAddresses, ...manualAddresses];
   const allChecked = selected.size === allAddresses.length && allAddresses.length > 0;
   const noneChecked = selected.size === 0;
   const mailingCost = selected.size * PER_LETTER_MAILING;
@@ -91,6 +137,12 @@ function AddressesPageContent() {
 
   function handleContinue() {
     const confirmed = allAddresses.filter((a) => selected.has(a));
+    const stillMissing = confirmed.some(isMissingZip);
+    if (stillMissing) {
+      setContinueError("Please add zip codes to highlighted addresses before continuing.");
+      return;
+    }
+    setContinueError("");
     store.setConfirmedAddresses(confirmed);
     store.setDeliveryMethod(delivery);
     const dest = sessionId
@@ -185,6 +237,7 @@ function AddressesPageContent() {
               const checked = selected.has(address);
               const isManual = manualAddresses.includes(address);
               const isLast = i === allAddresses.length - 1;
+              const missingZip = isMissingZip(address);
               return (
                 <label
                   key={address}
@@ -193,6 +246,7 @@ function AddressesPageContent() {
                   style={{
                     borderBottom: isLast ? "none" : "1px solid rgba(201,168,76,0.08)",
                     ...inputStyle,
+                    backgroundColor: missingZip ? "rgba(201,168,76,0.06)" : inputStyle.backgroundColor,
                   }}
                 >
                   <input
@@ -202,7 +256,44 @@ function AddressesPageContent() {
                     className="w-4 h-4 rounded accent-[#c9a84c] flex-shrink-0"
                   />
                   <span className="text-sm text-white flex-1">{address}</span>
-                  {isManual && (
+                  {missingZip && (
+                    <>
+                      <span
+                        className="text-xs px-2 py-0.5 rounded-full flex-shrink-0 font-semibold"
+                        style={{ backgroundColor: "rgba(201,168,76,0.18)", color: "#c9a84c" }}
+                        title="Missing zip code"
+                      >
+                        ⚠️ Missing zip
+                      </span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={5}
+                        placeholder="Add zip code"
+                        value={pendingZips[address] ?? ""}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => {
+                          const zip = e.target.value.replace(/\D/g, "").slice(0, 5);
+                          setPendingZips((prev) => ({ ...prev, [address]: zip }));
+                        }}
+                        onBlur={() => commitZip(address)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            commitZip(address);
+                          }
+                        }}
+                        className="w-28 px-2 py-1 rounded text-xs font-semibold flex-shrink-0 outline-none"
+                        style={{
+                          backgroundColor: "rgba(15,31,61,0.8)",
+                          color: "#c9a84c",
+                          border: "1px solid #c9a84c",
+                          fontFamily: dmSans.style.fontFamily,
+                        }}
+                      />
+                    </>
+                  )}
+                  {isManual && !missingZip && (
                     <span
                       className="text-xs px-2 py-0.5 rounded-full flex-shrink-0"
                       style={{ backgroundColor: "rgba(201,168,76,0.15)", color: "#c9a84c" }}
@@ -378,6 +469,11 @@ function AddressesPageContent() {
 
         {/* Continue CTA */}
         <div className="flex flex-col gap-3 pt-2 pb-8">
+          {continueError && (
+            <p className="text-sm text-center" style={{ color: "#f87171" }}>
+              {continueError}
+            </p>
+          )}
           <button
             onClick={handleContinue}
             disabled={noneChecked}
