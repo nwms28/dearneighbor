@@ -191,6 +191,42 @@ function SendPageContent() {
                 : "Your PDFs are being prepared. Check your email for the download link."}
             </p>
 
+            {/* What happens next */}
+            <div
+              className="rounded-xl p-6 w-full max-w-sm text-left mb-8"
+              style={{
+                backgroundColor: "rgba(201, 168, 76, 0.06)",
+                border: "1px solid rgba(201, 168, 76, 0.2)",
+              }}
+            >
+              <h2
+                className="text-lg font-semibold text-white mb-4"
+                style={{ fontFamily: playfair.style.fontFamily }}
+              >
+                What happens next
+              </h2>
+              <ul className="flex flex-col gap-3">
+                <li className="flex items-start gap-3">
+                  <span className="text-xl flex-shrink-0">📬</span>
+                  <span className="text-sm text-white leading-relaxed">
+                    Your letters are printed and mailed within 3-5 business days
+                  </span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="text-xl flex-shrink-0">📱</span>
+                  <span className="text-sm text-white leading-relaxed">
+                    Each letter includes a personal QR code for homeowners to respond
+                  </span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="text-xl flex-shrink-0">⚡</span>
+                  <span className="text-sm text-white leading-relaxed">
+                    You&apos;ll get an instant email the moment someone scans and responds
+                  </span>
+                </li>
+              </ul>
+            </div>
+
             {/* Campaign summary card */}
             <div
               className="rounded-xl p-6 w-full max-w-sm text-left mb-10"

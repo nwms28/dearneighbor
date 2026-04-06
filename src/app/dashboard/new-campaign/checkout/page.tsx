@@ -15,6 +15,7 @@ const INCLUDED = [
   "Real address lookup for your drawn area (up to 100 homes)",
   "Your personalized letter ready to send",
   "Ability to confirm and exclude any addresses",
+  "A unique QR code on every letter — homeowners scan to respond directly to you",
 ];
 
 export default function CheckoutPage() {
