@@ -61,22 +61,40 @@ export default function Home() {
       className={`${playfair.variable} ${dmSans.variable} min-h-screen`}
       style={{ backgroundColor: NAVY, fontFamily: "var(--font-dm-sans)" }}
     >
-      {/* ─────────────────────────── Section 1 — Hero ─────────────────────────── */}
-      <section className="px-6 py-20 md:py-28 flex flex-col items-center text-center">
-        <div className="w-full max-w-3xl flex flex-col items-center gap-8">
-          <p
-            className="text-sm font-medium tracking-widest uppercase"
-            style={{ color: GOLD }}
-          >
-            Coming soon · dearneighbor.ai
-          </p>
-
-          <h2
-            className="text-4xl md:text-5xl font-bold tracking-tight"
+      {/* ─────────────────────────── Sticky nav ─────────────────────────── */}
+      <nav
+        className="sticky top-0 z-50 px-6 py-4 backdrop-blur-md"
+        style={{
+          backgroundColor: "rgba(15, 31, 61, 0.75)",
+          borderBottom: "1px solid rgba(201, 168, 76, 0.18)",
+        }}
+      >
+        <div className="max-w-5xl mx-auto flex items-center justify-between gap-4">
+          <Link
+            href="/"
+            className="text-lg sm:text-xl font-bold tracking-tight"
             style={{ color: GOLD, fontFamily: "var(--font-playfair)" }}
           >
             Dear · Neighbor
-          </h2>
+          </Link>
+          <div className="flex items-center gap-4 sm:gap-6 text-sm" style={{ color: "#94a3b8" }}>
+            <a href="#how-it-works" className="hidden sm:inline hover:brightness-125">How it works</a>
+            <a href="#pricing" className="hidden sm:inline hover:brightness-125">Pricing</a>
+            <Link href="/sign-in" className="hover:brightness-125">Sign in</Link>
+            <Link
+              href="/sign-up"
+              className="px-4 py-2 rounded-lg font-semibold text-[#0f1f3d] transition hover:brightness-110"
+              style={{ backgroundColor: GOLD }}
+            >
+              Get started →
+            </Link>
+          </div>
+        </div>
+      </nav>
+
+      {/* ─────────────────────────── Section 1 — Hero ─────────────────────────── */}
+      <section className="px-6 py-20 md:py-28 flex flex-col items-center text-center">
+        <div className="w-full max-w-3xl flex flex-col items-center gap-8">
 
           <h1
             className="text-3xl md:text-5xl lg:text-6xl font-semibold leading-tight text-white"
@@ -301,24 +319,35 @@ export default function Home() {
                 price: "$49",
                 unit: "per campaign",
                 body: "Address lookup, AI letter writing, and up to 100 homes. One-time fee per neighborhood.",
+                bullets: [
+                  "Up to 100 addresses",
+                  "AI letter generation",
+                  "QR codes on every letter",
+                  "Address confirmation & exclusion",
+                ],
               },
               {
                 price: "$2.99",
                 unit: "per letter",
                 body: "We print, stuff, stamp and mail every letter. Or download PDFs free and deliver yourself.",
+                bullets: [
+                  "Printed & mailed for you",
+                  "First class postage included",
+                  "Or download PDFs free",
+                ],
               },
-            ].map(({ price, unit, body }) => (
+            ].map(({ price, unit, body, bullets }) => (
               <div
                 key={price}
-                className="rounded-xl p-7"
+                className="rounded-xl p-7 flex flex-col gap-4"
                 style={{
-                  backgroundColor: "rgba(201, 168, 76, 0.06)",
-                  border: "1px solid rgba(201, 168, 76, 0.25)",
+                  backgroundColor: "rgba(201, 168, 76, 0.08)",
+                  border: "2px solid #c9a84c",
                 }}
               >
-                <div className="flex items-baseline gap-2 mb-3">
+                <div className="flex items-baseline gap-2">
                   <span
-                    className="text-5xl font-semibold"
+                    className="text-6xl md:text-7xl font-semibold leading-none"
                     style={{ color: GOLD, fontFamily: "var(--font-playfair)" }}
                   >
                     {price}
@@ -330,6 +359,14 @@ export default function Home() {
                 <p className="text-sm leading-relaxed" style={{ color: "#94a3b8" }}>
                   {body}
                 </p>
+                <ul className="flex flex-col gap-2 mt-1">
+                  {bullets.map((b) => (
+                    <li key={b} className="flex items-start gap-2 text-sm text-white">
+                      <span className="flex-shrink-0 font-bold" style={{ color: GOLD }}>✓</span>
+                      <span>{b}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             ))}
           </div>
