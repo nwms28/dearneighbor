@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { DM_Sans, Playfair_Display } from "next/font/google";
@@ -18,7 +18,7 @@ interface ManualAddress {
 
 const EMPTY_MANUAL: ManualAddress = { street: "", city: "", state: "", zip: "" };
 
-export default function AddressesPage() {
+function AddressesPageContent() {
   const store = useCampaignStore();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -389,5 +389,13 @@ export default function AddressesPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function AddressesPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <AddressesPageContent />
+    </Suspense>
   );
 }

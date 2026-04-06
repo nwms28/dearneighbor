@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { DM_Sans, Playfair_Display } from "next/font/google";
@@ -9,7 +9,7 @@ import { useCampaignStore, PER_LETTER_MAILING } from "@/hooks/useCampaignStore";
 const playfair = Playfair_Display({ subsets: ["latin"] });
 const dmSans = DM_Sans({ subsets: ["latin"] });
 
-export default function ReviewPage() {
+function ReviewPageContent() {
   const store = useCampaignStore();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -208,5 +208,13 @@ export default function ReviewPage() {
         )}
       </main>
     </div>
+  );
+}
+
+export default function ReviewPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ReviewPageContent />
+    </Suspense>
   );
 }

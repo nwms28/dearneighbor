@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import Link from "next/link";
@@ -12,7 +12,7 @@ const dmSans = DM_Sans({ subsets: ["latin"] });
 
 type SaveState = "saving" | "done" | "error";
 
-export default function SendPage() {
+function SendPageContent() {
   const searchParams = useSearchParams();
   const { user } = useUser();
   const store = useCampaignStore();
@@ -239,5 +239,13 @@ export default function SendPage() {
         )}
       </main>
     </div>
+  );
+}
+
+export default function SendPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SendPageContent />
+    </Suspense>
   );
 }
