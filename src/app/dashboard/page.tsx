@@ -41,9 +41,16 @@ function StatusBadge({ status }: { status: string | null }) {
   );
 }
 
+interface CampaignStats {
+  mailed: number;
+  scanned: number;
+  interested: number;
+}
+
 export default function DashboardPage() {
   const { user } = useUser();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [stats, setStats] = useState<Record<string, CampaignStats>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -51,7 +58,18 @@ export default function DashboardPage() {
     fetch("/api/campaigns/list")
       .then((res) => res.json())
       .then((data) => {
-        if (data.campaigns) setCampaigns(data.campaigns);
+        if (data.campaigns) {
+          setCampaigns(data.campaigns);
+          // Fire stats fetches in parallel for each campaign
+          data.campaigns.forEach((c: Campaign) => {
+            fetch(`/api/campaigns/stats?campaignId=${c.id}`)
+              .then((r) => r.json())
+              .then((s: CampaignStats) => {
+                setStats((prev) => ({ ...prev, [c.id]: s }));
+              })
+              .catch((err) => console.error("[dashboard] stats failed for", c.id, err));
+          });
+        }
       })
       .catch((err) => console.error("[dashboard] failed to load campaigns:", err))
       .finally(() => setLoading(false));
@@ -163,6 +181,25 @@ export default function DashboardPage() {
                       <span style={{ color: "#64748b" }}>Created </span>
                       {formatDate(c.created_at)}
                     </p>
+                  </div>
+
+                  {/* Stats row */}
+                  <div
+                    className="flex flex-wrap gap-x-5 gap-y-2 mt-4 pt-3 border-t"
+                    style={{ borderColor: "rgba(201, 168, 76, 0.15)" }}
+                  >
+                    <span className="text-sm text-white">
+                      📬 <span className="font-semibold">{stats[c.id]?.mailed ?? "—"}</span>{" "}
+                      <span style={{ color: "#64748b" }}>mailed</span>
+                    </span>
+                    <span className="text-sm text-white">
+                      👁 <span className="font-semibold">{stats[c.id]?.scanned ?? "—"}</span>{" "}
+                      <span style={{ color: "#64748b" }}>scanned</span>
+                    </span>
+                    <span className="text-sm text-white">
+                      ✋ <span className="font-semibold">{stats[c.id]?.interested ?? "—"}</span>{" "}
+                      <span style={{ color: "#64748b" }}>interested</span>
+                    </span>
                   </div>
                 </div>
               ))}
