@@ -127,6 +127,14 @@ export default function HomeownerLandingPage({
         timeline,
       });
       if (!res.ok) throw new Error("Failed");
+
+      // Fire-and-forget buyer notification — don't block the confirmation screen if it fails
+      fetch("/api/notify-buyer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token }),
+      }).catch((err) => console.error("[home] notify-buyer failed:", err));
+
       setScreen("confirm");
     } catch {
       setFormError("Something went wrong. Please try again.");
