@@ -59,7 +59,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { sessionId, neighborhoodName, addresses, confirmedAddresses, generatedLetter, deliveryMethod } = body;
+    const { sessionId, neighborhoodName, addresses, confirmedAddresses, generatedLetter, deliveryMethod, returnAddress } = body;
 
     // Resolve userId: prefer client-supplied value, fall back to server-side auth()
     let { userId } = body;
@@ -138,6 +138,7 @@ export async function POST(request: Request) {
       status: "active",
       buyer_name: buyerName,
       buyer_city: buyerCity,
+      return_address: returnAddress ?? null,
     };
     console.log("[campaigns/save] inserting row:", JSON.stringify({ ...insertRow, letter: insertRow.letter?.slice(0, 40) }));
 

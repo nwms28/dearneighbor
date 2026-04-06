@@ -13,6 +13,14 @@ export type DeliveryMethod = "mail" | "download";
 
 export const PER_LETTER_MAILING = 2.99;
 
+export interface ReturnAddress {
+  street: string;
+  unit?: string;
+  city: string;
+  state: string;
+  zip: string;
+}
+
 export interface CampaignDraft {
   coordinates: LatLng[];
   neighborhoodName: string;
@@ -22,6 +30,7 @@ export interface CampaignDraft {
   confirmedAddresses: string[];
   generatedLetter: string;
   deliveryMethod: DeliveryMethod;
+  returnAddress: ReturnAddress | null;
 }
 
 const DEFAULT: CampaignDraft = {
@@ -33,6 +42,7 @@ const DEFAULT: CampaignDraft = {
   confirmedAddresses: [],
   generatedLetter: "",
   deliveryMethod: "mail",
+  returnAddress: null,
 };
 
 function loadFromStorage(): CampaignDraft {
@@ -85,6 +95,7 @@ export function useCampaignStore() {
     setConfirmedAddresses: (confirmedAddresses: string[]) => patch({ confirmedAddresses }),
     setGeneratedLetter: (generatedLetter: string) => patch({ generatedLetter }),
     setDeliveryMethod: (deliveryMethod: DeliveryMethod) => patch({ deliveryMethod }),
+    setReturnAddress: (returnAddress: ReturnAddress | null) => patch({ returnAddress }),
     clearCampaign,
   };
 }

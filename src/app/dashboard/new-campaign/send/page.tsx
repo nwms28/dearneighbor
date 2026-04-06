@@ -33,6 +33,7 @@ function SendPageContent() {
     confirmedAddresses: store.confirmedAddresses,
     generatedLetter: store.generatedLetter,
     deliveryMethod: store.deliveryMethod,
+    returnAddress: store.returnAddress,
   });
   // Keep the snapshot up-to-date as the store hydrates from localStorage
   storeSnapshot.current = {
@@ -41,6 +42,7 @@ function SendPageContent() {
     confirmedAddresses: store.confirmedAddresses,
     generatedLetter: store.generatedLetter,
     deliveryMethod: store.deliveryMethod,
+    returnAddress: store.returnAddress,
   };
 
   useEffect(() => {
@@ -69,6 +71,7 @@ function SendPageContent() {
       confirmedAddresses: snap.confirmedAddresses,
       generatedLetter: snap.generatedLetter,
       deliveryMethod: snap.deliveryMethod,
+      returnAddress: snap.returnAddress,
     };
 
     console.log("[send] firing save with payload:", {
