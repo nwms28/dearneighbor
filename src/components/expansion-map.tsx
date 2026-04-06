@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { APIProvider, Map, useMap, useMapsLibrary } from "@vis.gl/react-google-maps";
 
 interface LatLng {
@@ -8,7 +8,11 @@ interface LatLng {
   lng: number;
 }
 
-const US_CENTER = { lat: 39.5, lng: -98.35 };
+// Indianapolis fallback center — neighborhood-level zoom
+const DEFAULT_CENTER: LatLng = { lat: 39.9042, lng: -86.1581 };
+const DEFAULT_ZOOM = 13;
+
+type DrawMode = "polygon" | "rectangle" | null;
 
 function PlacesSearch() {
   const map = useMap();
@@ -52,18 +56,26 @@ function PlacesSearch() {
   );
 }
 
-function Drawer({ onShape }: { onShape: (coords: LatLng[]) => void }) {
+function Drawer({
+  onShape,
+  drawMode,
+  onDrawModeChange,
+}: {
+  onShape: (coords: LatLng[]) => void;
+  drawMode: DrawMode;
+  onDrawModeChange: (mode: DrawMode) => void;
+}) {
   const map = useMap();
   const drawingLib = useMapsLibrary("drawing");
+  const [manager, setManager] = useState<google.maps.drawing.DrawingManager | null>(null);
   const shapeRef = useRef<google.maps.Polygon | google.maps.Rectangle | null>(null);
 
   useEffect(() => {
     if (!map || !drawingLib) return;
     const dm = new drawingLib.DrawingManager({
       map,
-      drawingControl: true,
+      drawingControl: false,
       drawingControlOptions: {
-        position: google.maps.ControlPosition.BOTTOM_CENTER,
         drawingModes: [
           google.maps.drawing.OverlayType.POLYGON,
           google.maps.drawing.OverlayType.RECTANGLE,
@@ -84,6 +96,7 @@ function Drawer({ onShape }: { onShape: (coords: LatLng[]) => void }) {
         editable: false,
       },
     });
+    setManager(dm);
 
     const listener = google.maps.event.addListener(
       dm,
@@ -116,6 +129,7 @@ function Drawer({ onShape }: { onShape: (coords: LatLng[]) => void }) {
           }
         }
         if (coords.length > 0) onShape(coords);
+        onDrawModeChange(null);
       }
     );
 
@@ -126,28 +140,101 @@ function Drawer({ onShape }: { onShape: (coords: LatLng[]) => void }) {
         shapeRef.current = null;
       }
       dm.setMap(null);
+      setManager(null);
     };
-  }, [map, drawingLib, onShape]);
+  }, [map, drawingLib, onShape, onDrawModeChange]);
+
+  // Sync external drawMode → DrawingManager. Re-runs when the manager is rebuilt.
+  useEffect(() => {
+    console.log("[expansion-map] drawMode changed:", drawMode, "dm:", !!manager);
+    if (!manager) return;
+    if (drawMode === "polygon") {
+      manager.setDrawingMode(google.maps.drawing.OverlayType.POLYGON);
+    } else if (drawMode === "rectangle") {
+      manager.setDrawingMode(google.maps.drawing.OverlayType.RECTANGLE);
+    } else {
+      manager.setDrawingMode(null);
+    }
+  }, [drawMode, manager]);
 
   return null;
 }
 
-export default function ExpansionMap({ onShape }: { onShape: (coords: LatLng[]) => void }) {
+// Geocodes a string hint and recenters the map once the geocoder is ready.
+function CenterFromHint({ hint }: { hint?: string }) {
+  const map = useMap();
+  const geocodingLib = useMapsLibrary("geocoding");
+
+  useEffect(() => {
+    if (!map || !geocodingLib || !hint) return;
+    const geocoder = new geocodingLib.Geocoder();
+    geocoder.geocode({ address: hint }, (results, status) => {
+      if (status !== "OK" || !results || results.length === 0) return;
+      const loc = results[0].geometry.location;
+      map.setCenter({ lat: loc.lat(), lng: loc.lng() });
+      map.setZoom(15);
+    });
+  }, [map, geocodingLib, hint]);
+
+  return null;
+}
+
+export default function ExpansionMap({
+  onShape,
+  center,
+  centerHint,
+}: {
+  onShape: (coords: LatLng[]) => void;
+  center?: LatLng;
+  centerHint?: string;
+}) {
+  const [drawMode, setDrawMode] = useState<DrawMode>(null);
+  const initialCenter = center ?? DEFAULT_CENTER;
+
   return (
     <div className="relative w-full h-full">
       <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""}>
         <Map
-          defaultCenter={US_CENTER}
-          defaultZoom={4}
+          defaultCenter={initialCenter}
+          defaultZoom={DEFAULT_ZOOM}
           gestureHandling="greedy"
           disableDefaultUI={false}
           mapId="dearneighbor-map"
           style={{ width: "100%", height: "100%" }}
         >
           <PlacesSearch />
-          <Drawer onShape={onShape} />
+          <Drawer onShape={onShape} drawMode={drawMode} onDrawModeChange={setDrawMode} />
+          {!center && centerHint && <CenterFromHint hint={centerHint} />}
         </Map>
       </APIProvider>
+
+      {/* Custom drawing controls — bottom center */}
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex gap-3">
+        <button
+          type="button"
+          onClick={() => setDrawMode((m) => (m === "polygon" ? null : "polygon"))}
+          className="px-5 py-3 rounded-lg text-sm font-semibold transition hover:brightness-110 shadow-lg"
+          style={{
+            backgroundColor: "#0f1f3d",
+            color: "#c9a84c",
+            border: drawMode === "polygon" ? "2px solid #c9a84c" : "1px solid rgba(201,168,76,0.4)",
+          }}
+        >
+          Draw a polygon
+        </button>
+        <button
+          type="button"
+          onClick={() => setDrawMode((m) => (m === "rectangle" ? null : "rectangle"))}
+          className="px-5 py-3 rounded-lg text-sm font-semibold transition hover:brightness-110 shadow-lg"
+          style={{
+            backgroundColor: "#0f1f3d",
+            color: "#c9a84c",
+            border: drawMode === "rectangle" ? "2px solid #c9a84c" : "1px solid rgba(201,168,76,0.4)",
+          }}
+        >
+          Draw a rectangle
+        </button>
+      </div>
     </div>
   );
 }

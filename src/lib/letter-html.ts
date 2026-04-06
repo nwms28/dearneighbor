@@ -95,7 +95,7 @@ export function buildLetterHtml(opts: {
 </style>
 </head>
 <body>
-  <div class="header">Dear &middot; Neighbor</div>
+  <div class="header">Dear \u00b7 Neighbor</div>
 
   <div class="letter">${safeLetter}</div>
 
@@ -105,7 +105,7 @@ export function buildLetterHtml(opts: {
   </div>
 
   <div class="return">
-    ${escapeHtml(buyerName)} &middot; ${escapeHtml(returnLine2)} &middot; ${escapeHtml(returnLine3)}
+    ${escapeHtml(buyerName)} \u00b7 ${escapeHtml(returnLine2)} \u00b7 ${escapeHtml(returnLine3)}
   </div>
 </body>
 </html>`;

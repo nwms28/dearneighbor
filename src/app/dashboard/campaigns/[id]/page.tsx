@@ -242,7 +242,7 @@ export default function CampaignDetailPage({
         }
         dedupedNew.push(a);
       }
-      setPendingNew((prev) => [...prev, ...dedupedNew]);
+      setPendingNew((prev) => Array.from(new Set([...prev, ...dedupedNew])));
       setDuplicateCount((n) => n + dupes);
     } catch (err) {
       console.error("[campaign-detail] get-addresses failed:", err);
@@ -264,7 +264,7 @@ export default function CampaignDetailPage({
       setManual(EMPTY_MANUAL);
       return;
     }
-    setPendingNew((prev) => [...prev, formatted]);
+    setPendingNew((prev) => Array.from(new Set([...prev, formatted])));
     setManual(EMPTY_MANUAL);
   }
 
@@ -694,7 +694,12 @@ export default function CampaignDetailPage({
           <div className="flex-1 min-h-0 flex">
             <div className="flex-1 min-h-0 relative">
               {tab === "map" ? (
-                <ExpansionMap onShape={handleMapShape} />
+                <ExpansionMap
+                  onShape={handleMapShape}
+                  centerHint={
+                    campaign.addresses?.[0] ?? campaign.neighborhood_name ?? undefined
+                  }
+                />
               ) : (
                 <div className="p-8 max-w-md mx-auto w-full">
                   <p
@@ -777,9 +782,9 @@ export default function CampaignDetailPage({
               </div>
 
               <div className="flex-1 overflow-y-auto px-3 pb-3 flex flex-col gap-1">
-                {pendingNew.map((a) => (
+                {pendingNew.map((a, idx) => (
                   <div
-                    key={a}
+                    key={`${a}-${idx}`}
                     className="flex items-center justify-between gap-2 text-xs px-3 py-2 rounded"
                     style={{
                       backgroundColor: "rgba(201,168,76,0.05)",
