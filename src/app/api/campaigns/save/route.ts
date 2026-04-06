@@ -59,7 +59,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { sessionId, neighborhoodName, addresses, confirmedAddresses, generatedLetter, deliveryMethod, returnAddress } = body;
+    const { sessionId, neighborhoodName, campaignName, addresses, confirmedAddresses, generatedLetter, deliveryMethod, returnAddress } = body;
 
     // Resolve userId: prefer client-supplied value, fall back to server-side auth()
     let { userId } = body;
@@ -129,6 +129,7 @@ export async function POST(request: Request) {
 
     const insertRow = {
       user_id: userId,
+      campaign_name: campaignName?.trim() || neighborhoodName || null,
       neighborhood_name: neighborhoodName,
       address_count: confirmedAddresses?.length ?? addresses?.length ?? 0,
       addresses: confirmedAddresses ?? addresses ?? [],

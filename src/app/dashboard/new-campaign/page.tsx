@@ -166,14 +166,40 @@ interface SidePanelProps {
   estimatedCount: number;
   onRedraw: () => void;
   loading: boolean;
+  campaignName: string;
+  onCampaignNameChange: (value: string) => void;
 }
 
-function SidePanel({ estimatedCount, onRedraw, loading }: SidePanelProps) {
+function SidePanel({ estimatedCount, onRedraw, loading, campaignName, onCampaignNameChange }: SidePanelProps) {
   return (
     <aside
-      className="w-80 flex-shrink-0 flex flex-col gap-6 p-6 border-l"
+      className="w-80 flex-shrink-0 flex flex-col gap-6 p-6 border-l overflow-y-auto"
       style={{ backgroundColor: "#0f1f3d", borderColor: "rgba(201, 168, 76, 0.2)" }}
     >
+      <div>
+        <label
+          className="block text-xs font-medium tracking-widest uppercase mb-2"
+          style={{ color: "#c9a84c", fontFamily: dmSans.style.fontFamily }}
+        >
+          Campaign name <span className="normal-case tracking-normal" style={{ color: "#64748b" }}>(optional)</span>
+        </label>
+        <input
+          type="text"
+          value={campaignName}
+          onChange={(e) => onCampaignNameChange(e.target.value)}
+          placeholder="e.g. Burns Park, Barton Hills, My Dream Neighborhood"
+          className="w-full px-3 py-2 rounded-lg text-sm outline-none transition"
+          style={{
+            backgroundColor: "rgba(255,255,255,0.05)",
+            color: "#ffffff",
+            border: "1px solid rgba(201,168,76,0.3)",
+            fontFamily: dmSans.style.fontFamily,
+          }}
+          onFocus={(e) => (e.currentTarget.style.borderColor = "#c9a84c")}
+          onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(201,168,76,0.3)")}
+        />
+      </div>
+
       <div>
         <p className="text-xs font-medium tracking-widest uppercase mb-1"
           style={{ color: "#c9a84c", fontFamily: dmSans.style.fontFamily }}>
@@ -345,6 +371,8 @@ export default function NewCampaignPage() {
             estimatedCount={store.estimatedCount}
             onRedraw={handleRedraw}
             loading={geocodeLoading}
+            campaignName={store.campaignName}
+            onCampaignNameChange={store.setCampaignName}
           />
         )}
       </div>

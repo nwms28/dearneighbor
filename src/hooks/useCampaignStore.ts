@@ -23,6 +23,7 @@ export interface ReturnAddress {
 
 export interface CampaignDraft {
   coordinates: LatLng[];
+  campaignName: string;
   neighborhoodName: string;
   estimatedCount: number;
   addressCap: number;
@@ -35,6 +36,7 @@ export interface CampaignDraft {
 
 const DEFAULT: CampaignDraft = {
   coordinates: [],
+  campaignName: "",
   neighborhoodName: "",
   estimatedCount: 0,
   addressCap: 100,
@@ -89,6 +91,7 @@ export function useCampaignStore() {
     mailingCost: draft.confirmedAddresses.length * PER_LETTER_MAILING,
     setCoordinates: (coordinates: LatLng[]) => patch({ coordinates }),
     setNeighborhoodName: (neighborhoodName: string) => patch({ neighborhoodName }),
+    setCampaignName: (campaignName: string) => patch({ campaignName }),
     setEstimatedCount: (estimatedCount: number) => patch({ estimatedCount }),
     setAddressCap: (addressCap: number) => patch({ addressCap }),
     setAddresses: (addresses: string[]) => patch({ addresses }),

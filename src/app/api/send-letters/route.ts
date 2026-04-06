@@ -156,13 +156,14 @@ function buildLetterHtml(opts: {
 }
 
 export async function POST(request: Request) {
-  console.log("[send-letters] handler hit");
   try {
     const { campaignId } = await request.json();
+    console.log("[send-letters] handler called with campaignId:", campaignId);
     if (!campaignId) {
       return NextResponse.json({ error: "Missing campaignId" }, { status: 400 });
     }
 
+    console.log("[send-letters] LOB_API_KEY set:", !!process.env.LOB_API_KEY);
     const lobKey = process.env.LOB_API_KEY;
     if (!lobKey) {
       console.error("[send-letters] LOB_API_KEY is not set");
@@ -192,6 +193,12 @@ export async function POST(request: Request) {
     const qrCodes: QrCodeRecord[] = campaign.qr_codes ?? [];
     const returnAddress: ReturnAddress | null = campaign.return_address ?? null;
     const buyerName: string = campaign.buyer_name ?? "your neighbor";
+
+    console.log("[send-letters] campaign found:", {
+      addressCount: addresses.length,
+      hasReturnAddress: !!returnAddress,
+      hasQrCodes: qrCodes?.length,
+    });
 
     if (!returnAddress) {
       return NextResponse.json({ error: "Campaign is missing a return address" }, { status: 400 });
@@ -258,8 +265,10 @@ export async function POST(request: Request) {
           use_type: LtrUseType.Marketing,
         });
 
+        console.log("[send-letters] sending letter to:", fullAddress);
         const letter = await lob.create(letterEditable);
         const lobLetterId = letter.id;
+        console.log("[send-letters] Lob success, letter id:", lobLetterId);
 
         if (lobLetterId) {
           const { error: updateErr } = await db
@@ -274,7 +283,8 @@ export async function POST(request: Request) {
 
         sent++;
       } catch (err) {
-        console.error("[send-letters] failed to send letter for", fullAddress, err);
+        console.error("[send-letters] Lob error:", err);
+        console.error("[send-letters] failed to send letter for", fullAddress);
         failed++;
       }
     }

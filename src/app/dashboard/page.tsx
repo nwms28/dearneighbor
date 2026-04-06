@@ -10,6 +10,7 @@ const dmSans = DM_Sans({ subsets: ["latin"] });
 
 interface Campaign {
   id: string;
+  campaign_name: string | null;
   neighborhood_name: string | null;
   address_count: number | null;
   delivery_method: string | null;
@@ -75,6 +76,34 @@ export default function DashboardPage() {
   const [expanded, setExpanded] = useState<{ campaignId: string; filter: LeadFilter } | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [leadsLoading, setLeadsLoading] = useState(false);
+
+  // Inline name editing
+  const [editingNameId, setEditingNameId] = useState<string | null>(null);
+  const [editingNameValue, setEditingNameValue] = useState("");
+
+  function startEditName(c: Campaign) {
+    setEditingNameId(c.id);
+    setEditingNameValue(c.campaign_name ?? c.neighborhood_name ?? "");
+  }
+
+  async function commitEditName(id: string) {
+    const newName = editingNameValue.trim();
+    setEditingNameId(null);
+    // Optimistic update
+    setCampaigns((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, campaign_name: newName || null } : c))
+    );
+    try {
+      const res = await fetch(`/api/campaigns/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ campaignName: newName }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    } catch (err) {
+      console.error("[dashboard] failed to rename campaign:", err);
+    }
+  }
 
   function handleStatClick(campaignId: string, filter: LeadFilter) {
     // Same stat clicked again → collapse
@@ -202,12 +231,43 @@ export default function DashboardPage() {
                   }}
                 >
                   <div className="flex items-start justify-between gap-4 mb-3">
-                    <p
-                      className="text-lg font-semibold text-white"
-                      style={{ fontFamily: playfair.style.fontFamily }}
-                    >
-                      {c.neighborhood_name || "Unnamed campaign"}
-                    </p>
+                    {editingNameId === c.id ? (
+                      <input
+                        type="text"
+                        autoFocus
+                        value={editingNameValue}
+                        onChange={(e) => setEditingNameValue(e.target.value)}
+                        onBlur={() => commitEditName(c.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") commitEditName(c.id);
+                          if (e.key === "Escape") setEditingNameId(null);
+                        }}
+                        className="text-lg font-semibold text-white bg-transparent outline-none border-b flex-1 min-w-0"
+                        style={{
+                          fontFamily: playfair.style.fontFamily,
+                          borderColor: "#c9a84c",
+                        }}
+                      />
+                    ) : (
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <p
+                          className="text-lg font-semibold text-white truncate"
+                          style={{ fontFamily: playfair.style.fontFamily }}
+                        >
+                          {c.campaign_name || c.neighborhood_name || "Unnamed campaign"}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => startEditName(c)}
+                          className="text-sm flex-shrink-0 hover:brightness-125"
+                          style={{ color: "#c9a84c" }}
+                          aria-label="Rename campaign"
+                          title="Rename campaign"
+                        >
+                          ✏️
+                        </button>
+                      </div>
+                    )}
                     <StatusBadge status={c.status} />
                   </div>
                   <div className="flex flex-wrap gap-x-6 gap-y-1">

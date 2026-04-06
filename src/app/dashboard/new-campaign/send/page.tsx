@@ -30,6 +30,7 @@ function SendPageContent() {
   // captured values can't be cleared before the fetch completes.
   const storeSnapshot = useRef({
     neighborhoodName: store.neighborhoodName,
+    campaignName: store.campaignName,
     addresses: store.addresses,
     confirmedAddresses: store.confirmedAddresses,
     generatedLetter: store.generatedLetter,
@@ -39,6 +40,7 @@ function SendPageContent() {
   // Keep the snapshot up-to-date as the store hydrates from localStorage
   storeSnapshot.current = {
     neighborhoodName: store.neighborhoodName,
+    campaignName: store.campaignName,
     addresses: store.addresses,
     confirmedAddresses: store.confirmedAddresses,
     generatedLetter: store.generatedLetter,
@@ -68,6 +70,7 @@ function SendPageContent() {
       sessionId,
       userId: user.id,
       neighborhoodName: snap.neighborhoodName,
+      campaignName: snap.campaignName,
       addresses: snap.addresses,
       confirmedAddresses: snap.confirmedAddresses,
       generatedLetter: snap.generatedLetter,
@@ -108,6 +111,7 @@ function SendPageContent() {
         if (data.campaign?.delivery_method === "mail" && data.campaign?.id) {
           setSaveState("mailing");
           try {
+            console.log("[send] calling send-letters for campaign:", data.campaign.id);
             const mailRes = await fetch("/api/send-letters", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
