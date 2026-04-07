@@ -417,7 +417,8 @@ function AddressesPageContent() {
                   id: "download" as DeliveryMethod,
                   title: "Download PDFs",
                   badge: "Free",
-                  description: "Download ready-to-print PDFs and deliver yourself.",
+                  description:
+                    "We email you ready-to-print PDFs once they\u2019re generated, then you deliver yourself.",
                 },
               ] as const
             ).map(({ id, title, badge, description }) => {

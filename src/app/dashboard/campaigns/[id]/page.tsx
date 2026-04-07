@@ -133,16 +133,8 @@ export default function CampaignDetailPage({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ campaignId: campaign.id }),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "dear-neighbor-letters.zip";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
       setDownloadState("done");
     } catch (err) {
       console.error("[campaign-detail] download failed:", err);
@@ -420,14 +412,19 @@ export default function CampaignDetailPage({
                   style={{ backgroundColor: "#c9a84c" }}
                 >
                   {downloadState === "loading"
-                    ? "Generating your PDFs…"
+                    ? "Sending to the printer…"
                     : downloadState === "done"
-                    ? "Download again"
-                    : "Download PDFs"}
+                    ? "Email sent — check your inbox"
+                    : "Email me my PDFs"}
                 </button>
+                {downloadState === "done" && (
+                  <p className="text-sm" style={{ color: "#94a3b8" }}>
+                    Your PDFs are being prepared. You&apos;ll receive an email with the download link shortly.
+                  </p>
+                )}
                 {downloadState === "error" && (
                   <p className="text-sm" style={{ color: "#f87171" }}>
-                    Something went wrong generating your PDFs. Please try again.
+                    Something went wrong queueing your PDFs. Please try again.
                   </p>
                 )}
               </div>

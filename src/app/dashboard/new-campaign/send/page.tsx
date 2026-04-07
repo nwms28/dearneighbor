@@ -197,16 +197,8 @@ function SendPageContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ campaignId: campaign.id }),
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "dear-neighbor-letters.zip";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
       setDownloadState("done");
     } catch (err) {
       console.error("[send] download failed:", err);
@@ -299,7 +291,7 @@ function SendPageContent() {
             <p className="text-lg max-w-md mb-12" style={{ color: "#94a3b8" }}>
               {deliveryMethod === "mail"
                 ? "We\u2019re preparing your letters. You\u2019ll receive a confirmation email when they\u2019re on their way."
-                : "Your PDFs are being prepared. Check your email for the download link."}
+                : "Your PDFs are being prepared. You\u2019ll receive an email with the download link shortly."}
             </p>
 
             {/* What happens next */}
@@ -379,14 +371,19 @@ function SendPageContent() {
                   style={{ backgroundColor: "#c9a84c" }}
                 >
                   {downloadState === "loading"
-                    ? "Generating your PDFs…"
+                    ? "Sending to the printer…"
                     : downloadState === "done"
-                    ? "Download again"
-                    : "Download your letters"}
+                    ? "Email sent — check your inbox"
+                    : "Email me my letters"}
                 </button>
+                {downloadState === "done" && (
+                  <p className="text-sm" style={{ color: "#94a3b8" }}>
+                    Your PDFs are being prepared. You&apos;ll receive an email with the download link shortly.
+                  </p>
+                )}
                 {downloadState === "error" && (
                   <p className="text-sm" style={{ color: "#f87171" }}>
-                    Something went wrong generating your PDFs. Please try again.
+                    Something went wrong queueing your PDFs. Please try again.
                   </p>
                 )}
               </div>
