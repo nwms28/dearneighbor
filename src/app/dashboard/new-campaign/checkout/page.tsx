@@ -9,7 +9,7 @@ import { useCampaignStore } from "@/hooks/useCampaignStore";
 const playfair = Playfair_Display({ subsets: ["latin"] });
 const dmSans = DM_Sans({ subsets: ["latin"] });
 
-const CAMPAIGN_FEE = 49.0;
+const CAMPAIGN_FEE = 99.0;
 
 const INCLUDED = [
   "Real address lookup for your drawn area (up to 100 homes)",
@@ -108,15 +108,29 @@ export default function CheckoutPage() {
           </ul>
         </div>
 
-        {/* Price block */}
+        {/* Price block — founding member rate */}
         <div className="flex flex-col items-center gap-2">
+          <p
+            className="text-xs font-semibold tracking-widest uppercase"
+            style={{ color: "#c9a84c" }}
+          >
+            Founding Member Rate
+          </p>
           <p
             className="text-7xl font-semibold text-white"
             style={{ fontFamily: playfair.style.fontFamily, letterSpacing: "-0.02em" }}
           >
-            $49
+            $99
           </p>
-          <p className="text-sm text-center" style={{ color: "#64748b" }}>
+          <p className="text-sm text-center" style={{ color: "#94a3b8" }}>
+            Regular price{" "}
+            <span className="line-through" style={{ color: "#64748b" }}>$149</span>{" "}
+            · Locked in for life
+          </p>
+          <p className="text-xs text-center mt-1" style={{ color: "#c9a84c" }}>
+            🔒 Early access pricing for the first 25 customers
+          </p>
+          <p className="text-sm text-center mt-2" style={{ color: "#64748b" }}>
             One-time campaign fee. Mailing is separate when you&apos;re ready to send.
           </p>
         </div>

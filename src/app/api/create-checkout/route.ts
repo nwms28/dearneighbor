@@ -4,7 +4,7 @@
 import Stripe from "stripe";
 import { NextResponse } from "next/server";
 
-const CAMPAIGN_FEE_CENTS = 4900; // $49.00 — includes address lookup, letter generation, up to 100 addresses
+const CAMPAIGN_FEE_CENTS = 9900; // $99.00 founding member rate — includes address lookup, letter generation, up to 100 addresses
 
 export async function POST(request: Request) {
   try {
@@ -35,6 +35,9 @@ export async function POST(request: Request) {
           quantity: 1,
         },
       ],
+      metadata: {
+        founding_member: "true",
+      },
       success_url: `${origin}/dashboard/new-campaign/addresses?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/dashboard/new-campaign/checkout`,
     });

@@ -118,7 +118,7 @@ export default function Home() {
               className="px-8 py-4 rounded-lg font-semibold text-[#0f1f3d] text-lg transition hover:brightness-110 text-center"
               style={{ backgroundColor: GOLD }}
             >
-              Start for $49 →
+              Start for $99 →
             </Link>
             <a
               href="#how-it-works"
@@ -313,61 +313,97 @@ export default function Home() {
           <SectionHeadline>Pay only for what you send</SectionHeadline>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
-            {[
-              {
-                price: "$49",
-                unit: "per campaign",
-                body: "Address lookup, AI letter writing, and up to 100 homes. One-time fee per neighborhood.",
-                bullets: [
+            {/* Founding member campaign card */}
+            <div
+              className="rounded-xl p-7 flex flex-col gap-4"
+              style={{
+                backgroundColor: "rgba(201, 168, 76, 0.08)",
+                border: "2px solid #c9a84c",
+              }}
+            >
+              <span
+                className="text-sm line-through self-start"
+                style={{ color: "#64748b" }}
+              >
+                $149
+              </span>
+              <div className="flex items-baseline gap-2">
+                <span
+                  className="text-6xl md:text-7xl font-semibold leading-none"
+                  style={{ color: GOLD, fontFamily: "var(--font-playfair)" }}
+                >
+                  $99
+                </span>
+                <span className="text-sm" style={{ color: "#94a3b8" }}>
+                  per neighborhood
+                </span>
+              </div>
+              <span
+                className="self-start text-xs font-semibold tracking-wider uppercase px-3 py-1 rounded-full"
+                style={{
+                  color: GOLD,
+                  backgroundColor: "rgba(201,168,76,0.18)",
+                  border: "1px solid rgba(201,168,76,0.4)",
+                }}
+              >
+                🔒 Founding Member Rate — first 25 customers only
+              </span>
+              <p className="text-xs leading-relaxed" style={{ color: "#94a3b8" }}>
+                Price increases to $149 after founding spots fill.
+              </p>
+              <p className="text-sm leading-relaxed" style={{ color: "#94a3b8" }}>
+                Address lookup, AI letter writing, and up to 100 homes. One-time fee per neighborhood.
+              </p>
+              <ul className="flex flex-col gap-2 mt-1">
+                {[
                   "Up to 100 addresses",
                   "AI letter generation",
                   "QR codes on every letter",
                   "Address confirmation & exclusion",
-                ],
-              },
-              {
-                price: "$2.99",
-                unit: "per letter",
-                body: "We print, stuff, stamp and mail every letter. Or download PDFs free and deliver yourself.",
-                bullets: [
+                ].map((b) => (
+                  <li key={b} className="flex items-start gap-2 text-sm text-white">
+                    <span className="flex-shrink-0 font-bold" style={{ color: GOLD }}>✓</span>
+                    <span>{b}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Per-letter card */}
+            <div
+              className="rounded-xl p-7 flex flex-col gap-4"
+              style={{
+                backgroundColor: "rgba(201, 168, 76, 0.08)",
+                border: "2px solid #c9a84c",
+              }}
+            >
+              <div className="flex items-baseline gap-2">
+                <span
+                  className="text-6xl md:text-7xl font-semibold leading-none"
+                  style={{ color: GOLD, fontFamily: "var(--font-playfair)" }}
+                >
+                  $2.99
+                </span>
+                <span className="text-sm" style={{ color: "#94a3b8" }}>
+                  per letter
+                </span>
+              </div>
+              <p className="text-sm leading-relaxed" style={{ color: "#94a3b8" }}>
+                We print, stuff, stamp and mail every letter. Or download PDFs free and deliver yourself.
+              </p>
+              <ul className="flex flex-col gap-2 mt-1">
+                {[
                   "Printed & mailed for you",
                   "First class postage included",
                   "Or download PDFs free",
-                ],
-              },
-            ].map(({ price, unit, body, bullets }) => (
-              <div
-                key={price}
-                className="rounded-xl p-7 flex flex-col gap-4"
-                style={{
-                  backgroundColor: "rgba(201, 168, 76, 0.08)",
-                  border: "2px solid #c9a84c",
-                }}
-              >
-                <div className="flex items-baseline gap-2">
-                  <span
-                    className="text-6xl md:text-7xl font-semibold leading-none"
-                    style={{ color: GOLD, fontFamily: "var(--font-playfair)" }}
-                  >
-                    {price}
-                  </span>
-                  <span className="text-sm" style={{ color: "#94a3b8" }}>
-                    {unit}
-                  </span>
-                </div>
-                <p className="text-sm leading-relaxed" style={{ color: "#94a3b8" }}>
-                  {body}
-                </p>
-                <ul className="flex flex-col gap-2 mt-1">
-                  {bullets.map((b) => (
-                    <li key={b} className="flex items-start gap-2 text-sm text-white">
-                      <span className="flex-shrink-0 font-bold" style={{ color: GOLD }}>✓</span>
-                      <span>{b}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+                ].map((b) => (
+                  <li key={b} className="flex items-start gap-2 text-sm text-white">
+                    <span className="flex-shrink-0 font-bold" style={{ color: GOLD }}>✓</span>
+                    <span>{b}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
 
           <p className="text-sm mt-8" style={{ color: "#64748b" }}>
