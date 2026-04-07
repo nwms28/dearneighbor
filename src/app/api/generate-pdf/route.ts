@@ -136,34 +136,43 @@ export async function POST(request: Request) {
 
     const zip = new JSZip();
 
+    const BATCH_SIZE = 10;
     try {
-      let index = 0;
-      for (const fullAddress of addresses) {
-        index++;
-        const qr = qrCodes.find((q) => q.address === fullAddress);
-        if (!qr) {
-          console.warn("[generate-pdf] no QR for address, skipping:", fullAddress);
-          continue;
-        }
+      for (let start = 0; start < addresses.length; start += BATCH_SIZE) {
+        const batch = addresses.slice(start, start + BATCH_SIZE);
+        await Promise.all(
+          batch.map(async (fullAddress, batchIdx) => {
+            const i = start + batchIdx;
+            console.log("[generate-pdf] rendering PDF", i + 1, "of", addresses.length);
 
-        const html = buildLetterHtml({
-          letterText,
-          qrDataUrl: qr.qrCode,
-          buyerName,
-          returnAddress,
-        });
+            const qr = qrCodes.find((q) => q.address === fullAddress);
+            if (!qr) {
+              console.warn("[generate-pdf] no QR for address, skipping:", fullAddress);
+              return;
+            }
 
-        const page = await browser.newPage();
-        await page.setContent(html, { waitUntil: "networkidle0" });
-        const pdfBuffer = await page.pdf({
-          format: "letter",
-          printBackground: true,
-          preferCSSPageSize: true,
-        });
-        await page.close();
+            const html = buildLetterHtml({
+              letterText,
+              qrDataUrl: qr.qrCode,
+              buyerName,
+              returnAddress,
+            });
 
-        const filename = `${String(index).padStart(3, "0")}_${safeFilename(fullAddress, `letter_${index}`)}.pdf`;
-        zip.file(filename, pdfBuffer);
+            const page = await browser.newPage();
+            try {
+              await page.setContent(html, { waitUntil: "networkidle0" });
+              const pdfBuffer = await page.pdf({
+                format: "letter",
+                printBackground: true,
+                preferCSSPageSize: true,
+              });
+              const filename = `${String(i + 1).padStart(3, "0")}_${safeFilename(fullAddress, `letter_${i + 1}`)}.pdf`;
+              zip.file(filename, pdfBuffer);
+            } finally {
+              await page.close();
+            }
+          })
+        );
       }
     } finally {
       await browser.close();
