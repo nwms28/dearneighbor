@@ -3,6 +3,17 @@
 //
 // Requires REGRID_API_KEY env var (Regrid polygon search endpoint).
 // Falls back to mock data if the key is not set (local dev without a key).
+//
+// Address cache (Supabase `address_cache` table) — run once:
+//   create table if not exists address_cache (
+//     cache_key text primary key,
+//     addresses jsonb not null,
+//     expires_at timestamptz not null,
+//     created_at timestamptz default now()
+//   );
+
+import { createHash } from "crypto";
+import { createClient } from "@supabase/supabase-js";
 
 interface LatLng {
   lat: number;
@@ -210,6 +221,40 @@ export async function POST(request: Request) {
   const allowedCategories: LandUseCategory[] =
     filters?.landUseCategory ?? ["singleFamily"];
 
+  // ── Cache lookup ──
+  const rounded = coordinates.map((p) => ({
+    lat: Math.round(p.lat * 10000) / 10000,
+    lng: Math.round(p.lng * 10000) / 10000,
+  }));
+  const cacheKey = createHash("sha256")
+    .update(JSON.stringify({ ring: rounded, allowedCategories }))
+    .digest("hex");
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const cacheDb =
+    supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
+
+  if (cacheDb) {
+    try {
+      const { data: cached, error: cacheErr } = await cacheDb
+        .from("address_cache")
+        .select("addresses, expires_at")
+        .eq("cache_key", cacheKey)
+        .gt("expires_at", new Date().toISOString())
+        .maybeSingle();
+      if (cacheErr) {
+        console.warn("[get-addresses] cache lookup error:", cacheErr.message);
+      } else if (cached?.addresses) {
+        const addresses: string[] = cached.addresses as string[];
+        console.log("[get-addresses] cache hit for key:", cacheKey);
+        return Response.json({ count: addresses.length, addresses, parcels: [] });
+      }
+    } catch (err) {
+      console.warn("[get-addresses] cache lookup threw:", err);
+    }
+  }
+
   const apiKey = process.env.REGRID_API_KEY;
 
   if (!apiKey) {
@@ -307,9 +352,31 @@ export async function POST(request: Request) {
     `[get-addresses] Regrid returned ${features.length} features → ${allParcels.length} parsed → ${filtered.length} passed land use filter (${allowedCategories.join(", ")})`
   );
 
+  const filteredAddresses = filtered.map((p) => p.fullAddress);
+
+  // ── Cache write ──
+  if (cacheDb && filteredAddresses.length > 0) {
+    try {
+      const expiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
+      const { error: writeErr } = await cacheDb
+        .from("address_cache")
+        .upsert(
+          { cache_key: cacheKey, addresses: filteredAddresses, expires_at: expiresAt },
+          { onConflict: "cache_key" }
+        );
+      if (writeErr) {
+        console.warn("[get-addresses] cache write error:", writeErr.message);
+      } else {
+        console.log("[get-addresses] saved to cache, expires in 90 days");
+      }
+    } catch (err) {
+      console.warn("[get-addresses] cache write threw:", err);
+    }
+  }
+
   return Response.json({
     count: filtered.length,
-    addresses: filtered.map((p) => p.fullAddress),
+    addresses: filteredAddresses,
     parcels: filtered,
   });
 }
