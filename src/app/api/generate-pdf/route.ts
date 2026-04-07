@@ -22,7 +22,7 @@ interface QrCodeRecord {
 }
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 60; // requires Vercel Pro plan — Hobby is capped at 10s
 
 async function launchBrowser() {
   if (process.env.VERCEL) {
@@ -109,7 +109,31 @@ export async function POST(request: Request) {
     }
 
     console.log("[generate-pdf] launching headless chromium");
-    const browser = await launchBrowser();
+    console.log("[generate-pdf] VERCEL env:", process.env.VERCEL);
+    console.log("[generate-pdf] address count:", addresses.length);
+
+    let browser;
+    try {
+      browser = await launchBrowser();
+    } catch (err) {
+      console.error("[generate-pdf] browser launch error:", err);
+      console.error("[generate-pdf] VERCEL env:", process.env.VERCEL);
+      try {
+        const exePath = await chromium.executablePath();
+        console.error("[generate-pdf] executablePath:", exePath);
+      } catch (pathErr) {
+        console.error("[generate-pdf] executablePath lookup failed:", pathErr);
+      }
+      return NextResponse.json(
+        {
+          error:
+            "Could not start the PDF generator. Try a smaller campaign (under 5 addresses) or contact support if this keeps happening.",
+          detail: err instanceof Error ? err.message : String(err),
+        },
+        { status: 500 }
+      );
+    }
+
     const zip = new JSZip();
 
     try {
@@ -158,6 +182,17 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     console.error("[generate-pdf] unhandled error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    const message = err instanceof Error ? err.message : String(err);
+    // Common timeout / OOM signature → guide the user toward a smaller batch
+    const isTimeout = /timeout|timed out|FUNCTION_INVOCATION_TIMEOUT/i.test(message);
+    return NextResponse.json(
+      {
+        error: isTimeout
+          ? "PDF generation took too long. Try a smaller campaign (under 5 addresses) or contact support."
+          : "PDF generation failed. Try a smaller campaign (under 5 addresses) or contact support.",
+        detail: message,
+      },
+      { status: 500 }
+    );
   }
 }
