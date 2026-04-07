@@ -6,6 +6,15 @@ import { createClient } from "@supabase/supabase-js";
 
 export async function POST(request: Request) {
   const { email } = await request.json();
+  console.log("[subscribe] handler called with email:", email);
+  console.log(
+    "[subscribe] env check - RESEND:",
+    !!process.env.RESEND_API_KEY,
+    "SUPABASE_URL:",
+    !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+    "SUPABASE_KEY:",
+    !!process.env.SUPABASE_SERVICE_ROLE_KEY
+  );
 
   if (!email || !email.includes("@")) {
     return Response.json({ error: "Invalid email address" }, { status: 400 });
@@ -40,19 +49,24 @@ export async function POST(request: Request) {
   `;
 
   try {
-    const { error: welcomeError } = await resend.emails.send({
+    console.log("[subscribe] sending welcome email via Resend");
+    const resendResult = await resend.emails.send({
       from: "notifications@dearneighbor.ai",
       to: email,
       subject: "You're on the Dear Neighbor waitlist 🏠",
       html: welcomeHtml,
     });
+    console.log("[subscribe] Resend response:", JSON.stringify(resendResult));
 
-    if (welcomeError) {
-      console.error("[subscribe] welcome send failed:", welcomeError);
+    if (resendResult.error) {
+      console.error("[subscribe] welcome send failed:", JSON.stringify(resendResult.error));
       return Response.json({ success: false }, { status: 500 });
     }
   } catch (err) {
-    console.error("[subscribe] welcome send threw:", err);
+    console.error(
+      "[subscribe] welcome send threw:",
+      JSON.stringify(err instanceof Error ? { message: err.message, stack: err.stack } : err)
+    );
     return Response.json({ success: false }, { status: 500 });
   }
 
@@ -82,14 +96,21 @@ export async function POST(request: Request) {
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (supabaseUrl && supabaseKey) {
     try {
+      console.log("[subscribe] saving to waitlist table");
       const db = createClient(supabaseUrl, supabaseKey);
-      const { error: insertErr } = await db.from("waitlist").insert({ email });
-      if (insertErr && insertErr.code !== "23505") {
+      const result = await db.from("waitlist").insert({ email });
+      console.log("[subscribe] Supabase result:", JSON.stringify(result));
+      if (result.error && result.error.code !== "23505") {
         // 23505 = unique_violation — duplicate emails are fine
-        console.error("[subscribe] waitlist insert failed:", insertErr.message);
+        console.error("[subscribe] waitlist insert failed:", JSON.stringify(result.error));
+      } else if (result.error?.code === "23505") {
+        console.log("[subscribe] duplicate email — already on waitlist");
       }
     } catch (err) {
-      console.error("[subscribe] waitlist insert threw:", err);
+      console.error(
+        "[subscribe] waitlist insert threw:",
+        JSON.stringify(err instanceof Error ? { message: err.message, stack: err.stack } : err)
+      );
     }
   } else {
     console.warn("[subscribe] Supabase env vars missing — skipping waitlist insert");
