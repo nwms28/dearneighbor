@@ -17,7 +17,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { Resend } from "resend";
 import puppeteer from "puppeteer-core";
-import chromium from "@sparticuz/chromium";
+import chromium from "@sparticuz/chromium-min";
 import JSZip from "jszip";
 import { buildLetterHtml, type ReturnAddress } from "@/lib/letter-html";
 
@@ -34,11 +34,18 @@ export const maxDuration = 60; // requires Vercel Pro plan — Hobby is capped a
 const STORAGE_BUCKET = "pdf-downloads";
 const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
+// chromium-min ships without the binary — it must be fetched from a remote tarball
+// at runtime. The version of the tarball MUST match the installed chromium-min version
+// (currently 143.0.4). Override via CHROMIUM_PACK_URL if you self-host the pack.
+const CHROMIUM_PACK_URL =
+  process.env.CHROMIUM_PACK_URL ??
+  "https://github.com/Sparticuz/chromium/releases/download/v143.0.4/chromium-v143.0.4-pack.tar";
+
 async function launchBrowser() {
   if (process.env.VERCEL) {
     return puppeteer.launch({
       args: chromium.args,
-      executablePath: await chromium.executablePath(),
+      executablePath: await chromium.executablePath(CHROMIUM_PACK_URL),
       headless: true,
     });
   }
