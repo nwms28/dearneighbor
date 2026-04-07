@@ -22,20 +22,19 @@ interface QrCodeRecord {
 }
 
 export const runtime = "nodejs";
-export const maxDuration = 300;
+export const maxDuration = 60;
 
 async function launchBrowser() {
-  const localPath = process.env.PUPPETEER_EXECUTABLE_PATH || process.env.CHROME_PATH;
-  if (localPath) {
+  if (process.env.VERCEL) {
     return puppeteer.launch({
-      executablePath: localPath,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      args: chromium.args,
+      executablePath: await chromium.executablePath(),
       headless: true,
     });
   }
+  // Local dev — use a local Chrome install
   return puppeteer.launch({
-    args: chromium.args,
-    executablePath: await chromium.executablePath(),
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
     headless: true,
   });
 }
