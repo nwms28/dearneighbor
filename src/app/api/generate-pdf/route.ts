@@ -12,7 +12,7 @@
 //   - Supabase Storage bucket `pdf-downloads` (private)
 //   - Vercel Pro plan for maxDuration > 10s
 
-import { NextResponse, after } from "next/server";
+import { NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { Resend } from "resend";
@@ -60,7 +60,8 @@ function safeFilename(input: string, fallback: string): string {
   return cleaned || fallback;
 }
 
-interface RenderJob {
+async function generateAndDeliver(opts: {
+  db: SupabaseClient;
   campaignId: string;
   addresses: string[];
   letterText: string;
@@ -68,11 +69,8 @@ interface RenderJob {
   returnAddress: ReturnAddress;
   buyerName: string;
   buyerEmail: string | null;
-}
-
-async function runRenderJob(db: SupabaseClient, job: RenderJob) {
-  const { campaignId, addresses, letterText, qrCodes, returnAddress, buyerName, buyerEmail } = job;
-  console.log("[generate-pdf] background job started for", campaignId, "with", addresses.length, "addresses");
+}): Promise<{ ok: boolean; signedUrl?: string; error?: string }> {
+  const { db, campaignId, addresses, letterText, qrCodes, returnAddress, buyerName, buyerEmail } = opts;
 
   let browser;
   try {
@@ -85,7 +83,7 @@ async function runRenderJob(db: SupabaseClient, job: RenderJob) {
     } catch (pathErr) {
       console.error("[generate-pdf] executablePath lookup failed:", pathErr);
     }
-    return;
+    return { ok: false, error: "Could not start the PDF generator." };
   }
 
   const zip = new JSZip();
@@ -144,7 +142,7 @@ async function runRenderJob(db: SupabaseClient, job: RenderJob) {
     zipBuffer = await zip.generateAsync({ type: "uint8array" });
   } catch (err) {
     console.error("[generate-pdf] zip generate error:", err);
-    return;
+    return { ok: false, error: "Failed to assemble the ZIP file." };
   }
 
   // Upload to Supabase Storage
@@ -158,7 +156,7 @@ async function runRenderJob(db: SupabaseClient, job: RenderJob) {
     });
   if (uploadErr) {
     console.error("[generate-pdf] storage upload failed:", uploadErr.message);
-    return;
+    return { ok: false, error: `Storage upload failed: ${uploadErr.message}` };
   }
 
   // 7-day signed URL
@@ -167,7 +165,7 @@ async function runRenderJob(db: SupabaseClient, job: RenderJob) {
     .createSignedUrl(objectPath, SIGNED_URL_TTL_SECONDS);
   if (signErr || !signed?.signedUrl) {
     console.error("[generate-pdf] signed URL failed:", signErr?.message);
-    return;
+    return { ok: false, error: "Failed to generate download URL." };
   }
 
   console.log("[generate-pdf] signed URL ready, length:", signed.signedUrl.length);
@@ -175,12 +173,12 @@ async function runRenderJob(db: SupabaseClient, job: RenderJob) {
   // Email the buyer
   if (!buyerEmail) {
     console.warn("[generate-pdf] no buyer email — skipping notification");
-    return;
+    return { ok: true, signedUrl: signed.signedUrl };
   }
   const resendKey = process.env.RESEND_API_KEY;
   if (!resendKey) {
     console.warn("[generate-pdf] RESEND_API_KEY not set — skipping notification");
-    return;
+    return { ok: true, signedUrl: signed.signedUrl };
   }
 
   const resend = new Resend(resendKey);
@@ -218,6 +216,8 @@ async function runRenderJob(db: SupabaseClient, job: RenderJob) {
   } catch (err) {
     console.error("[generate-pdf] resend threw:", err);
   }
+
+  return { ok: true, signedUrl: signed.signedUrl };
 }
 
 export async function POST(request: Request) {
@@ -283,29 +283,37 @@ export async function POST(request: Request) {
       console.error("[generate-pdf] could not load Clerk user:", err);
     }
 
-    console.log("[generate-pdf] queueing background job for", addresses.length, "addresses, buyer:", buyerEmail);
-
-    // Background work — runs after the response is sent
-    after(
-      runRenderJob(db, {
-        campaignId,
-        addresses,
-        letterText,
-        qrCodes,
-        returnAddress,
-        buyerName,
-        buyerEmail,
-      })
+    console.log(
+      "[generate-pdf] starting synchronous generation for",
+      addresses.length,
+      "addresses"
     );
+    console.log("[generate-pdf] buyer email:", buyerEmail);
 
-    return NextResponse.json(
-      {
-        success: true,
-        message:
-          "Your PDFs are being prepared. Check your email for the download link.",
-      },
-      { status: 202 }
-    );
+    const result = await generateAndDeliver({
+      db,
+      campaignId,
+      addresses,
+      letterText,
+      qrCodes,
+      returnAddress,
+      buyerName,
+      buyerEmail,
+    });
+
+    if (!result.ok) {
+      return NextResponse.json(
+        { error: result.error ?? "PDF generation failed." },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      message:
+        "Your PDFs are ready. Check your email for the download link.",
+      signedUrl: result.signedUrl,
+    });
   } catch (err) {
     console.error("[generate-pdf] unhandled error:", err);
     return NextResponse.json(
